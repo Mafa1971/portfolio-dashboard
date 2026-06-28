@@ -786,7 +786,7 @@ async function loadAllData() {
       sbFetch("positions?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
       sbFetch("closed_lots?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
       sbFetch("fundamentals?select=*&user_id=eq." + currentUser),
-      sbFetch("targets?select=*&user_id=eq." + currentUser + "&order=id.asc&limit=1")
+      sbFetch("targets?select=*&user_id=eq." + currentUser + "&limit=1")
     ]);
 
     positions = posData.map(r => ({
