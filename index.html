@@ -875,21 +875,37 @@ let chartTicker = null, chartSector = null, chartCapital = null;
 let eurUsdRate = 1.0;
 
 // ── CAPITALE & LIQUIDITA' ─────────────────────────────────────────────
-function loadCapital() {
-  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_capital")) || "{}"); } catch(e) { return {}; }
-}
-function saveCapital(data) {
-  try { localStorage.setItem(getStorageKey("portfolio_capital"), JSON.stringify(data)); } catch(e) {}
-}
-function loadCapitalHistory() {
-  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_capital_history")) || "[]"); } catch(e) { return []; }
-}
-function saveCapitalHistory(h) {
-  try { localStorage.setItem(getStorageKey("portfolio_capital_history"), JSON.stringify(h)); } catch(e) {}
+// ── USER SETTINGS (Supabase) ──────────────────────────────────────────
+async function loadUserSettings() {
+  try {
+    const data = await sbFetch("user_settings?select=*&user_id=eq." + currentUser + "&limit=1");
+    if (data && data[0]) {
+      capitalData = { total: data[0].capital || 0 };
+      capitalHistory = data[0].capital_history || [];
+      watchlist = data[0].watchlist || [];
+    }
+  } catch(e) { console.error("Errore caricamento settings:", e); }
 }
 
-let capitalData = loadCapital();
-let capitalHistory = loadCapitalHistory();
+async function saveUserSettings() {
+  try {
+    await sbFetch("user_settings?on_conflict=user_id", "POST", [{
+      user_id: currentUser,
+      capital: capitalData.total || 0,
+      capital_history: capitalHistory,
+      watchlist: watchlist,
+      updated_at: new Date().toISOString()
+    }]);
+  } catch(e) { console.error("Errore salvataggio settings:", e); }
+}
+
+function loadCapital() { return capitalData || {}; }
+function saveCapital(data) { capitalData = data; saveUserSettings(); }
+function loadCapitalHistory() { return capitalHistory || []; }
+function saveCapitalHistory(h) { capitalHistory = h; saveUserSettings(); }
+
+let capitalData = {};
+let capitalHistory = [];
 
 // Fetch EUR/USD rate
 async function fetchEurUsd() {
@@ -2018,14 +2034,10 @@ window.applyModelPortfolio = function(id) {
 
 
 // ── WATCHLIST ─────────────────────────────────────────────────────────
-let watchlist = loadWatchlist();
+let watchlist = [];
 
-function loadWatchlist() {
-  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_watchlist")) || "[]"); } catch(e) { return []; }
-}
-function saveWatchlist() {
-  try { localStorage.setItem(getStorageKey("portfolio_watchlist"), JSON.stringify(watchlist)); } catch(e) {}
-}
+function loadWatchlist() { return watchlist; }
+function saveWatchlist() { saveUserSettings(); }
 
 const modalWatchOverlay = document.getElementById("modalWatchOverlay");
 document.getElementById("btnAddWatch").addEventListener("click", () => {
@@ -2254,7 +2266,7 @@ async function init() {
   document.getElementById("positionsTableWrap").innerHTML = `
     <div class="empty-state"><div class="ic">⏳</div><p>CARICAMENTO DATI DAL DATABASE...</p></div>`;
   try {
-    await Promise.all([loadAllData(), fetchEurUsd()]);
+    await Promise.all([loadAllData(), fetchEurUsd(), loadUserSettings()]);
     document.getElementById("lastUpdate").textContent = positions.length > 0 ? "DATI CARICATI" : "MAI AGGIORNATO";
   } catch(e) {
     console.error("Errore init:", e);
