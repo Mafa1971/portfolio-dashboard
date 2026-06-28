@@ -2166,6 +2166,7 @@ function renderWatchlist() {
     h += `<tr style="border-top:1px solid #1a2030;">
       <td style="padding:9px 8px;">
         <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
+        <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;margin-left:4px;">📈</a>
         <div style="font-size:10px;color:var(--dim);margin-top:2px;">${w.name}</div>
       </td>
       <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;">
