@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Portfolio Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161d29; --panel2:#1c2433; --line:#232c3d;
+  --txt:#eef1f7; --dim:#7d8aa3; --dim2:#4f5b73;
+  --grad1:#6e5cff; --grad2:#00d4b8; --coral:#ff6b6b; --sun:#ffd23f; --blue:#4fa3ff;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--txt);font-family:'Manrope',sans-serif;padding:24px;font-size:14px;}
+.mono{font-family:'JetBrains Mono',monospace;}
+a{color:inherit;}
+
+/* HEADER */
+.hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.hdr h1{font-size:22px;font-weight:800;letter-spacing:-0.5px;}
+.hdr-right{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.badge{background:linear-gradient(135deg,var(--grad1),var(--grad2));padding:6px 14px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1px;}
+.btn{font-family:'Manrope',sans-serif;font-weight:700;font-size:12px;padding:9px 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--txt);cursor:pointer;transition:all .2s;}
+.btn:hover{border-color:var(--grad1);}
+.btn.primary{background:linear-gradient(135deg,var(--grad1),var(--grad2));border:none;}
+.btn.primary:hover{filter:brightness(1.1);}
+.btn.ghost{background:transparent;color:var(--dim);}
+
+/* HERO CARD */
+.hero-card{
+  background:linear-gradient(135deg,#1a2236,#11151f);
+  border:1px solid var(--line);border-radius:20px;padding:26px;margin-bottom:20px;
+  position:relative;overflow:hidden;
+}
+.hero-card::before{
+  content:"";position:absolute;top:-50%;right:-15%;width:340px;height:340px;
+  background:radial-gradient(circle,rgba(110,92,255,0.22),transparent 70%);pointer-events:none;
+}
+.hero-row{display:flex;gap:40px;position:relative;flex-wrap:wrap;}
+.hero-kpi .v{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;}
+.hero-kpi .l{font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:0.5px;}
+.up{color:#00d4b8;}
+.down{color:var(--coral);}
+.neutral{color:var(--sun);}
+
+/* CARDS ROW */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;}
+.card .v{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;}
+.card .l{font-size:9px;color:var(--dim);margin-top:6px;letter-spacing:1px;text-transform:uppercase;}
+
+/* LAYOUT GRID */
+.main-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:20px;}
+.col{display:flex;flex-direction:column;gap:18px;}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;}
+.panel-title{font-size:13px;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+.panel-title .sub{font-size:10px;color:var(--dim);font-weight:500;letter-spacing:1px;text-transform:uppercase;}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;}
+th{text-align:right;font-size:9px;color:var(--dim);letter-spacing:1px;padding:10px 8px;text-transform:uppercase;border-bottom:1px solid var(--line);}
+th:first-child,th:nth-child(2){text-align:left;}
+td{padding:11px 8px;text-align:right;font-size:12.5px;border-top:1px solid #1a2030;}
+td:first-child,td:nth-child(2){text-align:left;}
+.tick{font-family:'JetBrains Mono',monospace;font-weight:700;background:linear-gradient(135deg,var(--grad1),var(--grad2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;cursor:pointer;}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:8px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.chip.up{background:rgba(0,212,184,0.15);color:#00d4b8;}
+.chip.down{background:rgba(255,107,107,0.15);color:var(--coral);}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;}
+.icon-btn{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;}
+.icon-btn:hover{color:var(--coral);background:rgba(255,107,107,0.1);}
+
+/* CHARTS */
+.chart-wrap{position:relative;height:230px;}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+/* NEWS */
+.news-item{padding:12px 0;border-bottom:1px solid #1a2030;}
+.news-item:last-child{border-bottom:none;}
+.news-tick{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--blue);background:rgba(79,163,255,0.12);padding:2px 8px;border-radius:6px;margin-bottom:6px;}
+.news-title{font-size:13px;font-weight:600;line-height:1.4;text-decoration:none;display:block;}
+.news-title:hover{color:var(--grad2);}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:14px;}
+.fg label{display:block;font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}
+.fg input,.fg select{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  padding:9px 11px;font-family:'Manrope',sans-serif;font-size:13px;border-radius:8px;outline:none;
+}
+.fg input:focus,.fg select:focus{border-color:var(--grad1);}
+/* Allow JS color overrides on inputs */
+.fg input[style*="color"]{color:inherit;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:85vh;overflow-y:auto;}
+.modal h3{font-size:16px;margin-bottom:16px;}
+
+/* MANUAL PRICE BADGE */
+.manual-badge{font-size:8px;color:var(--sun);letter-spacing:1px;margin-left:4px;}
+
+/* FUNDAMENTALS GRID */
+.fund-section{margin-top:18px;}
+.fund-section-title{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line);}
+.fund-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:6px;}
+.fund-item .fl{font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;}
+.fund-item .fv{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;}
+textarea{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  padding:10px 12px;font-family:'Manrope',sans-serif;font-size:13px;border-radius:8px;outline:none;
+  resize:vertical;min-height:80px;
+}
+textarea:focus{border-color:var(--grad1);}
+/* Modal inputs - allow JS color overrides */
+.modal .fg input[type=number],
+.modal .fg input[type=text] {
+  color:var(--txt);
+  font-weight:400;
+}
+.modal .fg input.colored-positive { color:#00d4b8 !important; font-weight:700 !important; }
+.modal .fg input.colored-negative { color:#ff6b6b !important; font-weight:700 !important; }
+.modal .fg input.colored-neutral  { color:#ffd23f !important; font-weight:700 !important; }
+
+/* EMPTY */
+.empty-state{text-align:center;padding:40px 20px;color:var(--dim);}
+.empty-state .ic{font-size:28px;margin-bottom:10px;}
+.empty-state p{font-size:12px;letter-spacing:0.5px;}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .main-grid{grid-template-columns:1fr;}
+  .chart-row{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  body{padding:14px;}
+  .hero-row{gap:20px;}
+  th,td{padding:8px 6px;font-size:11px;}
+}
+
+footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-align:center;}
+</style>
+<style>
+#loginScreen{display:flex;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:20px;}
+#loginScreen .logo{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--txt);}
+#loginScreen .sub{font-size:11px;color:var(--dim);letter-spacing:2px;margin-top:-12px;}
+#loginScreen .lcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:360px;box-sizing:border-box;}
+#loginScreen .lcard label{display:block;font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px;text-transform:uppercase;}
+#loginScreen .lcard input,#loginScreen .lcard select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px 14px;font-family:'Manrope',sans-serif;font-size:14px;border-radius:8px;outline:none;margin-bottom:16px;box-sizing:border-box;}
+#loginScreen .lcard input:focus{border-color:var(--grad1);}
+#loginScreen .btn-login{width:100%;background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;padding:13px;border-radius:10px;font-family:'Manrope',sans-serif;font-weight:700;font-size:14px;cursor:pointer;letter-spacing:1px;}
+#loginScreen .err{font-size:11px;color:var(--coral);text-align:center;min-height:16px;margin-top:8px;}
+#appContent{display:none;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div style="text-align:center;">
+    <div class="logo">PORTFOLIO</div>
+    <div class="sub">ACCESSO RISERVATO</div>
+  </div>
+  <div class="lcard">
+    <label>Portafoglio</label>
+    <select id="loginUser">
+      <option value="fabrizio">Fabrizio</option>
+      <option value="jonathan">Jonathan</option>
+    </select>
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="Inserisci la password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-login" onclick="doLogin()">ACCEDI &#8594;</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<div id="appContent">
+<div class="hdr">
+  <h1>PORTFOLIO <span id="userBadge" style="font-size:11px;color:var(--grad2);font-weight:400;letter-spacing:2px;margin-left:8px;"></span></h1>
+  <div class="hdr-right">
+    <span class="badge" id="lastUpdate">MAI AGGIORNATO</span>
+    <button class="btn" id="btnAddPosition">+ NUOVA POSIZIONE</button>
+    <button class="btn" id="btnBackupExport">💾 BACKUP</button>
+    <button class="btn" id="btnBackupImport">📥 RIPRISTINA</button>
+    <input type="file" id="backupFileInput" accept=".json" style="display:none;">
+    <button class="btn ghost" id="btnLogout" style="padding:7px 14px;font-size:10px;letter-spacing:1px;">ESCI</button>
+    <button class="btn primary" id="btnRefresh">↻ AGGIORNA PREZZI</button>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero-card">
+  <div class="hero-row">
+    <div class="hero-kpi"><div class="v" id="heroReturn">--</div><div class="l">RENDIMENTO TOTALE</div></div>
+    <div class="hero-kpi"><div class="v" id="heroValue">--</div><div class="l">VALORE PORTAFOGLIO</div></div>
+    <div class="hero-kpi"><div class="v" id="heroPL" style="font-size:24px">--</div><div class="l">P&amp;L ASSOLUTO</div></div>
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="cards">
+  <div class="card"><div class="v neutral" id="kpiSortino">--</div><div class="l">Sortino Ratio</div></div>
+  <div class="card"><div class="v" style="color:var(--grad2)" id="kpiSharpe">--</div><div class="l">Sharpe Ratio</div></div>
+  <div class="card"><div class="v down" id="kpiMaxDD">--</div><div class="l">Max Drawdown</div></div>
+  <div class="card"><div class="v" id="kpiVol">--</div><div class="l">Volatilita' Annua</div></div>
+  <div class="card"><div class="v" id="kpiPositions">0</div><div class="l">Posizioni Attive</div></div>
+</div>
+
+<!-- CAPITALE TOTALE -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-title">
+    CAPITALE &amp; LIQUIDITA'
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="number" id="totalCapitalInput" placeholder="Es. 10000" step="any"
+        style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;width:140px;outline:none;">
+      <button class="btn" id="btnSetCapital" style="padding:6px 14px;font-size:10px;">IMPOSTA €</button>
+      <button class="btn ghost" id="btnAddLiquidity" style="padding:6px 14px;font-size:10px;">+ AGGIUNGI LIQUIDITA'</button>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:4px;">
+    <div class="card"><div class="v" id="kpiTotalCapital" style="color:var(--blue)">--</div><div class="l">Capitale Totale €</div></div>
+    <div class="card"><div class="v" id="kpiInvested" style="color:var(--sun)">--</div><div class="l">Investito €</div></div>
+    <div class="card"><div class="v" id="kpiLiquidity" style="color:var(--grad2)">--</div><div class="l">Liquidita' €</div></div>
+    <div class="card"><div class="v" id="kpiLiquidityPct" style="color:var(--grad2)">--</div><div class="l">Liquidita' %</div></div>
+    <div class="card"><div class="v" id="kpiEurUsd" style="color:var(--dim)">--</div><div class="l">EUR/USD</div></div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div class="main-grid">
+  <div class="col">
+    <!-- POSITIONS TABLE -->
+    <div class="panel">
+      <div class="panel-title">POSIZIONI <span class="sub" id="posCount">0 titoli</span></div>
+      <div id="positionsTableWrap">
+        <div class="empty-state">
+          <div class="ic">◌</div>
+          <p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- REBALANCE -->
+    <div class="panel">
+      <div class="panel-title">RIBILANCIAMENTO <button class="btn ghost" id="btnOpenTargets" style="padding:5px 12px;font-size:10px;">⚙ TARGET</button></div>
+      <div id="rebalanceWrap">
+        <div class="empty-state"><p>IMPOSTA I TARGET PER VEDERE I SUGGERIMENTI</p></div>
+      </div>
+    </div>
+
+    <!-- PORTAFOGLI MODELLO -->
+    <div class="panel">
+      <div class="panel-title">PORTAFOGLI MODELLO <span class="sub">clicca per applicare i target</span></div>
+      <div id="modelPortfolios"></div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="panel">
+      <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
+      <div class="chart-row">
+        <div>
+          <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER TITOLO</div>
+          <div class="chart-wrap"><canvas id="chartByTicker"></canvas></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER SETTORE</div>
+          <div class="chart-wrap"><canvas id="chartBySector"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPITAL CHART -->
+    <div class="panel">
+      <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
+      <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <!-- NEWS PER TITOLO -->
+    <div class="panel">
+      <div class="panel-title">NEWS POSIZIONI</div>
+      <div id="newsPositions">
+        <div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div>
+      </div>
+    </div>
+
+    <!-- WATCHLIST -->
+    <div class="panel">
+      <div class="panel-title">WATCHLIST
+        <button class="btn ghost" id="btnAddWatch" style="padding:5px 12px;font-size:10px;">+ AGGIUNGI</button>
+        <button class="btn ghost" id="btnImportWatchExcel" style="padding:5px 12px;font-size:10px;">📊 EXCEL</button>
+        <input type="file" id="watchExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+        <button class="btn ghost" id="btnRefreshWatch" style="padding:5px 12px;font-size:10px;">↻</button>
+      </div>
+      <div id="watchlistWrap">
+        <div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>
+      </div>
+    </div>
+
+    <!-- NEWS GENERALI -->
+    <div class="panel">
+      <div class="panel-title">MERCATI</div>
+      <div id="newsGeneral">
+        <div class="news-item">
+          <a class="news-title" href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank">Yahoo Finance — Ultime notizie sui mercati →</a>
+        </div>
+        <div class="news-item">
+          <a class="news-title" href="https://finance.yahoo.com/topic/economic-news/" target="_blank">Yahoo Finance — Notizie economiche →</a>
+        </div>
+        <div class="news-item">
+          <a class="news-title" href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/finanza.html" target="_blank">Borsa Italiana — Notizie finanza →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>DATI: YAHOO FINANCE (NON UFFICIALE) — SOLO INFORMATIVO — NON CONSULENZA FINANZIARIA</footer>
+
+<!-- MODAL ADD POSITION -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Nuova Posizione</h3>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Ticker</label>
+        <input type="text" id="fTicker" placeholder="es. ENI.MI o AAPL">
+      </div>
+      <div class="fg">
+        <label>Nome</label>
+        <input type="text" id="fName" placeholder="es. Eni SpA">
+      </div>
+      <div class="fg">
+        <label>Quantita'</label>
+        <input type="number" id="fQty" placeholder="100" step="any">
+      </div>
+      <div class="fg">
+        <label>Prezzo Acquisto</label>
+        <input type="number" id="fPrice" placeholder="18.40" step="any">
+      </div>
+      <div class="fg">
+        <label>Data Acquisto</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="fg">
+        <label>Borsa</label>
+        <select id="fExchange" onchange="updateTickerSuffix()">
+          <option value="">NYSE / NASDAQ (USA)</option>
+          <option value=".MI">Borsa Italiana (.MI)</option>
+          <option value=".DE">Xetra Germania (.DE)</option>
+          <option value=".PA">Euronext Parigi (.PA)</option>
+          <option value=".L">London Stock Exchange (.L)</option>
+          <option value=".SW">SIX Swiss (.SW)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Valuta</label>
+        <select id="fCurrency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="CHF">CHF</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Area</label>
+        <select id="fRegion">
+          <option value="USA">USA</option>
+          <option value="Europa">Europa</option>
+          <option value="Altro">Altro</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Settore</label>
+        <select id="fSector">
+          <option>Tecnologia</option>
+          <option>Finanziario</option>
+          <option>Energia</option>
+          <option>Salute</option>
+          <option>Industriali</option>
+          <option>Consumer</option>
+          <option>Utilities</option>
+          <option>Materiali</option>
+          <option>Immobiliare</option>
+          <option>Altro</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost" id="btnCancelAdd">Annulla</button>
+      <button class="btn primary" id="btnSaveAdd">Salva Posizione</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT POSITION -->
+<div class="modal-overlay" id="modalEditOverlay">
+  <div class="modal">
+    <h3>Modifica Posizione</h3>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Ticker</label>
+        <input type="text" id="eTicker" placeholder="es. RACE.MI">
+      </div>
+      <div class="fg">
+        <label>Nome</label>
+        <input type="text" id="eName">
+      </div>
+      <div class="fg">
+        <label>Quantita'</label>
+        <input type="number" id="eQty" step="any">
+      </div>
+      <div class="fg">
+        <label>Prezzo Acquisto</label>
+        <input type="number" id="ePrice" step="any">
+      </div>
+      <div class="fg">
+        <label>Data Acquisto</label>
+        <input type="date" id="eDate">
+      </div>
+      <div class="fg">
+        <label>Valuta</label>
+        <select id="eCurrency">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="CHF">CHF</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Settore</label>
+        <select id="eSector">
+          <option>Tecnologia</option>
+          <option>Finanziario</option>
+          <option>Energia</option>
+          <option>Salute</option>
+          <option>Industriali</option>
+          <option>Consumer</option>
+          <option>Utilities</option>
+          <option>Materiali</option>
+          <option>Immobiliare</option>
+          <option>Altro</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Area</label>
+        <select id="eRegion">
+          <option value="USA">USA</option>
+          <option value="Europa">Europa</option>
+          <option value="Altro">Altro</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost" id="btnCancelEdit">Annulla</button>
+      <button class="btn primary" id="btnSaveEdit">Salva Modifiche</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modalCloseOverlay">
+  <div class="modal">
+    <h3>Chiudi Posizione (parziale o totale)</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:14px;" id="closeInfo"></p>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Quantita' da vendere</label>
+        <input type="number" id="cQty" step="any">
+      </div>
+      <div class="fg">
+        <label>Prezzo di vendita</label>
+        <input type="number" id="cPrice" step="any">
+      </div>
+      <div class="fg">
+        <label>Data vendita</label>
+        <input type="date" id="cDate">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost" id="btnCancelClose">Annulla</button>
+      <button class="btn primary" id="btnConfirmClose">Conferma Vendita</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REBALANCE TARGETS -->
+<div class="modal-overlay" id="modalTargetsOverlay">
+  <div class="modal" style="max-width:560px;">
+    <h3>Target di Allocazione</h3>
+    <p style="font-size:12px;color:var(--dim);margin-bottom:14px;">Imposta i pesi desiderati. Lascia vuoto per non vincolare.</p>
+    <div id="targetsForm"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+      <button class="btn ghost" id="btnCancelTargets">Chiudi</button>
+      <button class="btn primary" id="btnSaveTargets">Salva Target</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL WATCHLIST -->
+<div class="modal-overlay" id="modalWatchOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h3>Aggiungi a Watchlist</h3>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:span 2">
+        <label>Ticker</label>
+        <input type="text" id="wTicker" placeholder="es. AAPL o ENI.MI">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Nome (opzionale)</label>
+        <input type="text" id="wName" placeholder="es. Apple Inc.">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Settore</label>
+        <select id="wSector">
+          <option>Tecnologia</option>
+          <option>Finanziario</option>
+          <option>Energia</option>
+          <option>Salute</option>
+          <option>Industriali</option>
+          <option>Consumer</option>
+          <option>Utilities</option>
+          <option>Materiali</option>
+          <option>Immobiliare</option>
+          <option>Altro</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost" id="btnCancelWatch">Annulla</button>
+      <button class="btn primary" id="btnSaveWatch">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="modalSchedaOverlay">
+  <div class="modal" style="max-width:640px;">
+    <h3 id="schedaTitle">Scheda Titolo</h3>
+
+    <div style="margin-bottom:16px;padding:12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;">IMPORTA DA CSV</div>
+      <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+      <button class="btn" id="btnImportCSV" style="padding:7px 16px;font-size:10px;">📂 Seleziona CSV</button>
+      <span id="csvImportStatus" style="font-size:11px;color:var(--dim);"></span>
+    </div>
+
+    <div class="form-grid">
+      <div class="fg"><label>Prezzo Attuale (manuale)</label><input type="number" id="sPrice" step="any" placeholder="es. 281.74" oninput="colorField(this,'neutral');updateCurrentValue()"></div>
+      <div class="fg"><label>Data Aggiornamento</label><input type="date" id="sPriceDate"></div>
+      <div class="fg"><label>Min 52 settimane</label><input type="number" id="sYearLow" step="any" oninput="colorField(this,'neutral')"></div>
+      <div class="fg"><label>Max 52 settimane</label><input type="number" id="sYearHigh" step="any" oninput="colorField(this,'neutral')"></div>
+      <div class="fg"><label>Capitale Investito</label><div id="sInvested" style="padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--dim);">--</div></div>
+      <div class="fg"><label>Valore Attuale</label><div id="sCurrentValue" style="padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;">--</div></div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Valutazione</div>
+      <div class="form-grid">
+        <div class="fg"><label>P/E Ratio</label><input type="number" id="fPE" step="any" placeholder="10.6" oninput="colorPE(this)"></div>
+        <div class="fg"><label>Rendimento Dividendi %</label><input type="number" id="fDivYield" step="any" placeholder="4.0" oninput="colorDivYield(this)"></div>
+        <div class="fg"><label>Beta</label><input type="number" id="fBeta" step="any" placeholder="0.35" oninput="colorBeta(this)"></div>
+        <div class="fg"><label>Fair Value</label><input type="number" id="fFairValue" step="any" placeholder="452.06" oninput="colorFairValue(this)"></div>
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Conto Economico</div>
+      <div class="form-grid">
+        <div class="fg"><label>Ricavi</label><input type="text" id="fRevenue" placeholder="327.8B" oninput="colorField(this,'positive')"></div>
+        <div class="fg"><label>Profitto Netto</label><input type="text" id="fNetIncome" placeholder="122B" oninput="colorBySign(this)"></div>
+        <div class="fg"><label>EBITDA</label><input type="text" id="fEbitda" placeholder="173.9B" oninput="colorBySign(this)"></div>
+        <div class="fg"><label>EPS</label><input type="number" id="fEPS" step="any" placeholder="27.41" oninput="colorBySign(this)"></div>
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Stato Patrimoniale</div>
+      <div class="form-grid">
+        <div class="fg"><label>Asset Totali</label><input type="text" id="fTotalAssets" placeholder="559.2B" oninput="colorField(this,'positive')"></div>
+        <div class="fg"><label>Debito Totale</label><input type="text" id="fTotalDebt" placeholder="146.4B" oninput="colorField(this,'negative')"></div>
+        <div class="fg"><label>Patrimonio Netto</label><input type="text" id="fEquity" placeholder="203.1B" oninput="colorBySign(this)"></div>
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Cash Flow</div>
+      <div class="form-grid">
+        <div class="fg"><label>Flusso Operativo</label><input type="text" id="fOpCashFlow" placeholder="118.5B" oninput="colorBySign(this)"></div>
+        <div class="fg"><label>Flusso di Cassa Libero</label><input type="text" id="fFCF" placeholder="60.4B" oninput="colorBySign(this)"></div>
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Analisi Tecnica — Supporti &amp; Resistenze</div>
+      <div class="form-grid">
+        <div class="fg"><label>Resistenza Maggiore (R2)</label><input type="number" id="fR2" step="any" placeholder="es. 19.45" oninput="colorField(this,'negative')"></div>
+        <div class="fg"><label>Resistenza (R1)</label><input type="number" id="fR1" step="any" placeholder="es. 12.00" oninput="colorField(this,'neutral')"></div>
+        <div class="fg"><label>Supporto (S1)</label><input type="number" id="fS1" step="any" placeholder="es. 8.50" oninput="colorField(this,'positive')"></div>
+        <div class="fg"><label>Supporto Critico (S2)</label><input type="number" id="fS2" step="any" placeholder="es. 4.19" oninput="colorField(this,'negative')"></div>
+      </div>
+      <div class="fg" style="margin-top:10px;">
+        <label>Analisi Tecnica (testo sintetico)</label>
+        <textarea id="fAnalysisTech" rows="2" placeholder="es. Prezzo consolida zona $8.50. R1=$12 R2=$19.45 S1=$8.50 S2=$4.19"></textarea>
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Analisi Fondamentale &amp; Rating</div>
+      <div class="fg" style="margin-bottom:10px;">
+        <label>Analisi Fondamentale (testo sintetico)</label>
+        <textarea id="fAnalysisFund" rows="2" placeholder="es. Growth story early-commercial. Ricavi +37% YoY ma perdite continue..."></textarea>
+      </div>
+      <div class="fg">
+        <label>Rating / Giudizio Personale</label>
+        <input type="text" id="fRating" placeholder="es. SPECULATIVO - monitorare trimestrali">
+      </div>
+    </div>
+
+    <div class="fund-section">
+      <div class="fund-section-title">Note Personali</div>
+      <textarea id="fNotes" placeholder="La tua analisi, considerazioni, catalizzatori da monitorare..."></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+      <button class="btn ghost" id="btnCancelScheda">Chiudi</button>
+      <button class="btn primary" id="btnSaveScheda">Salva Scheda</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end appContent -->
+
+<script>
+// ── LOGIN 2 UTENTI ────────────────────────────────────────────────────
+const USERS = {
+  fabrizio: { password: "Marinportfoglio2026.", name: "FABRIZIO" },
+  jonathan:  { password: "Pessinaportfoglio2026.", name: "JONATHAN" }
+};
+const AUTH_KEY = "portfolio_auth_v2";
+let currentUser = null;
+
+function getStorageKey(base) {
+  return base + "_" + currentUser;
+}
+
+window.doLogin = function() {
+  const user = document.getElementById("loginUser").value;
+  const pwd = document.getElementById("loginPassword").value;
+  const u = USERS[user];
+  if (u && pwd === u.password) {
+    currentUser = user;
+    try { localStorage.setItem(AUTH_KEY, user); } catch(e) {}
+    showApp(user);
+  } else {
+    document.getElementById("loginErr").textContent = "Password errata — riprova.";
+    document.getElementById("loginPassword").value = "";
+  }
+};
+
+function showApp(user) {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("appContent").style.display = "block";
+  document.getElementById("userBadge").textContent = USERS[user]?.name || user.toUpperCase();
+  init();
+}
+
+// ── COLOR FUNCTIONS PER SCHEDA TITOLO ────────────────────────────────
+function applyColor(el, color) {
+  el.classList.remove("colored-positive","colored-negative","colored-neutral");
+  if (color === "positive") el.classList.add("colored-positive");
+  else if (color === "negative") el.classList.add("colored-negative");
+  else if (color === "neutral") el.classList.add("colored-neutral");
+  else { el.style.color = "#eef1f7"; el.style.fontWeight = "700"; }
+}
+
+window.colorField = function(el, type) {
+  if (!el.value) { el.style.color = ""; return; }
+  applyColor(el, type);
+};
+
+window.colorBySign = function(el) {
+  if (!el.value) { el.style.color = ""; return; }
+  const v = parseFloat(el.value.toString().replace(/[^0-9.-]/g, ""));
+  if (isNaN(v)) { applyColor(el, "white"); return; }
+  applyColor(el, v > 0 ? "positive" : v < 0 ? "negative" : "neutral");
+};
+
+window.colorPE = function(el) {
+  if (!el.value) { el.style.color = ""; return; }
+  const v = parseFloat(el.value);
+  if (isNaN(v) || v < 0) { applyColor(el, "neutral"); return; }
+  applyColor(el, v < 15 ? "positive" : v < 25 ? "neutral" : "negative");
+};
+
+window.colorDivYield = function(el) {
+  if (!el.value) { el.style.color = ""; return; }
+  const v = parseFloat(el.value);
+  applyColor(el, v > 3 ? "positive" : v > 0 ? "neutral" : "negative");
+};
+
+window.colorBeta = function(el) {
+  if (!el.value) { el.style.color = ""; return; }
+  const v = parseFloat(el.value);
+  applyColor(el, v < 1 ? "positive" : v < 1.5 ? "neutral" : "negative");
+};
+
+window.colorFairValue = function(el) {
+  const price = parseFloat(document.getElementById("sPrice").value);
+  const fv = parseFloat(el.value);
+  if (!el.value || isNaN(fv)) { el.style.color = ""; return; }
+  if (isNaN(price)) { applyColor(el, "neutral"); return; }
+  applyColor(el, price < fv ? "positive" : "negative");
+};
+
+window.updateCurrentValue = function() {
+  const ticker = schedaTickerKey;
+  const p = positions.find(x => x.ticker === ticker);
+  if (!p) return;
+  const price = parseFloat(document.getElementById("sPrice").value) || p.currentPrice || p.buyPrice;
+  const invested = p.buyPrice * p.qty;
+  const currentVal = price * p.qty;
+  const pl = currentVal - invested;
+  const sym = p.currency === "USD" ? "$" : "€";
+  const color = pl >= 0 ? "#00d4b8" : "#ff6b6b";
+  document.getElementById("sCurrentValue").textContent = `${sym}${currentVal.toLocaleString("it-IT",{maximumFractionDigits:0})} (${pl>=0?"+":""}${sym}${Math.abs(pl).toFixed(0)})`;
+  document.getElementById("sCurrentValue").style.color = color;
+};
+
+function applySchedaColors() {
+  const fields = [
+    { id: "fPE", fn: "colorPE" },
+    { id: "fDivYield", fn: "colorDivYield" },
+    { id: "fBeta", fn: "colorBeta" },
+    { id: "fFairValue", fn: "colorFairValue" },
+    { id: "fNetIncome", fn: "colorBySign" },
+    { id: "fEbitda", fn: "colorBySign" },
+    { id: "fEPS", fn: "colorBySign" },
+    { id: "fEquity", fn: "colorBySign" },
+    { id: "fOpCashFlow", fn: "colorBySign" },
+    { id: "fFCF", fn: "colorBySign" },
+    { id: "fRevenue", fn: null, type: "positive" },
+    { id: "fTotalAssets", fn: null, type: "positive" },
+    { id: "fTotalDebt", fn: null, type: "negative" },
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (!el || !el.value) return;
+    if (f.fn) window[f.fn](el);
+    else applyColor(el, f.type);
+  });
+}
+
+
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────
+const SUPA_URL = "https://bvzgudqbirlqnotaqame.supabase.co";
+const SUPA_KEY = "sb_publishable_6JQK_8MZHBiEBVnq0ei3cQ_qbiuc5RO";
+
+async function sbFetch(path, method = "GET", body = null) {
+  const opts = {
+    method,
+    headers: {
+      "apikey": SUPA_KEY,
+      "Authorization": "Bearer " + SUPA_KEY,
+      "Content-Type": "application/json",
+      "Prefer": method === "POST" ? "resolution=merge-duplicates,return=minimal" : "return=representation"
+    }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(SUPA_URL + "/rest/v1/" + path, opts);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+
+// ── LOAD ALL DATA FROM SUPABASE ───────────────────────────────────────
+async function loadAllData() {
+  try {
+    const [posData, closedData, fundData, targData] = await Promise.all([
+      sbFetch("positions?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
+      sbFetch("closed_lots?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
+      sbFetch("fundamentals?select=*&user_id=eq." + currentUser),
+      sbFetch("targets?select=*&user_id=eq." + currentUser + "&order=id.asc&limit=1")
+    ]);
+
+    positions = posData.map(r => ({
+      id: r.id, ticker: r.ticker, name: r.name, qty: r.qty,
+      buyPrice: r.buy_price, buyDate: r.buy_date, currency: r.currency,
+      sector: r.sector, region: r.region, currentPrice: r.current_price,
+      ath: r.ath, isManual: r.is_manual, lastFetch: r.last_fetch,
+      signal: r.signal_label ? { label: r.signal_label, color: r.signal_color } : null,
+      sma21: r.sma21, sma100: r.sma100, sma200: r.sma200, rsi: r.rsi
+    }));
+
+    closedLots = closedData.map(r => ({
+      id: r.id, ticker: r.ticker, name: r.name, qty: r.qty,
+      buyPrice: r.buy_price, sellPrice: r.sell_price,
+      buyDate: r.buy_date, sellDate: r.sell_date,
+      currency: r.currency, sector: r.sector, region: r.region,
+      realizedPL: r.realized_pl, realizedPLPercent: r.realized_pl_percent
+    }));
+
+    fundamentals = {};
+    fundData.forEach(r => { fundamentals[r.ticker] = r.data; });
+
+    targets = (targData && targData[0]) ? targData[0].data : { ticker:{}, sector:{}, region:{} };
+
+  } catch(e) {
+    console.error("Errore caricamento dati:", e);
+  }
+}
+
+// ── SAVE FUNCTIONS ────────────────────────────────────────────────────
+async function savePositions(pos) {
+  try {
+    const rows = pos.map(p => ({
+      id: p.id, user_id: currentUser, ticker: p.ticker, name: p.name, qty: p.qty,
+      buy_price: p.buyPrice, buy_date: p.buyDate, currency: p.currency,
+      sector: p.sector, region: p.region, current_price: p.currentPrice,
+      ath: p.ath, is_manual: p.isManual || false, last_fetch: p.lastFetch,
+      signal_label: p.signal ? p.signal.label : null,
+      signal_color: p.signal ? p.signal.color : null,
+      sma21: p.sma21 || null, sma100: p.sma100 || null,
+      sma200: p.sma200 || null, rsi: p.rsi || null
+    }));
+    if (rows.length > 0) {
+      await sbFetch("positions?on_conflict=id", "POST", rows);
+    }
+  } catch(e) { console.error("Errore salvataggio posizioni:", e); }
+}
+
+async function deletePositionFromDB(id) {
+  try { await sbFetch("positions?id=eq." + id, "DELETE"); } catch(e) { console.error(e); }
+}
+
+async function saveClosedLots() {
+  try {
+    const rows = closedLots.map(l => ({
+      id: l.id, user_id: currentUser, ticker: l.ticker, name: l.name, qty: l.qty,
+      buy_price: l.buyPrice, sell_price: l.sellPrice,
+      buy_date: l.buyDate, sell_date: l.sellDate,
+      currency: l.currency, sector: l.sector, region: l.region,
+      realized_pl: l.realizedPL, realized_pl_percent: l.realizedPLPercent
+    }));
+    if (rows.length > 0) await sbFetch("closed_lots?on_conflict=id", "POST", rows);
+  } catch(e) { console.error("Errore salvataggio chiusure:", e); }
+}
+
+async function saveFundamentals() {
+  try {
+    const rows = Object.entries(fundamentals).map(([ticker, data]) => ({ ticker, user_id: currentUser, data, updated_at: new Date().toISOString() }));
+    if (rows.length > 0) await sbFetch("fundamentals?on_conflict=ticker", "POST", rows);
+  } catch(e) { console.error("Errore salvataggio fondamentali:", e); }
+}
+
+async function saveTargets() {
+  try {
+    await sbFetch("targets?on_conflict=user_id", "POST", [{ user_id: currentUser, data: targets, updated_at: new Date().toISOString() }]);
+  } catch(e) { console.error("Errore salvataggio target:", e); }
+}
+
+
+// ── VARIABILI GLOBALI ─────────────────────────────────────────────────
+let positions = [];
+let closedLots = [];
+let targets = { ticker:{}, sector:{}, region:{} };
+let fundamentals = {};
+let chartTicker = null, chartSector = null, chartCapital = null;
+let eurUsdRate = 1.0;
+
+// ── CAPITALE & LIQUIDITA' ─────────────────────────────────────────────
+function loadCapital() {
+  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_capital")) || "{}"); } catch(e) { return {}; }
+}
+function saveCapital(data) {
+  try { localStorage.setItem(getStorageKey("portfolio_capital"), JSON.stringify(data)); } catch(e) {}
+}
+function loadCapitalHistory() {
+  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_capital_history")) || "[]"); } catch(e) { return []; }
+}
+function saveCapitalHistory(h) {
+  try { localStorage.setItem(getStorageKey("portfolio_capital_history"), JSON.stringify(h)); } catch(e) {}
+}
+
+let capitalData = loadCapital();
+let capitalHistory = loadCapitalHistory();
+
+// Fetch EUR/USD rate
+async function fetchEurUsd() {
+  try {
+    const url = `/.netlify/functions/yahoo?ticker=EURUSD%3DX&range=1d&interval=1d`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const rate = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (rate) eurUsdRate = rate;
+  } catch(e) { console.log("EUR/USD non disponibile, uso 1.0"); }
+}
+
+function convertToEur(amount, currency) {
+  if (currency === "EUR") return amount;
+  if (currency === "USD") return amount / eurUsdRate;
+  return amount;
+}
+
+// Calcola totale investito in EUR
+function calcInvestedEur() {
+  return positions.reduce((sum, p) => {
+    const price = p.currentPrice || p.buyPrice;
+    return sum + convertToEur(price * p.qty, p.currency);
+  }, 0);
+}
+
+function calcInvestedCostEur() {
+  return positions.reduce((sum, p) => {
+    return sum + convertToEur(p.buyPrice * p.qty, p.currency);
+  }, 0);
+}
+
+// Aggiorna snapshot storico
+function snapshotCapital() {
+  const totalCapital = capitalData.total || 0;
+  if (totalCapital === 0 && positions.length === 0) return;
+  const now = new Date().toISOString().slice(0,10);
+  const invested = calcInvestedCostEur();
+  const value = calcInvestedEur();
+  const last = capitalHistory[capitalHistory.length - 1];
+  if (last && last.date === now) {
+    capitalHistory[capitalHistory.length - 1] = { date: now, invested, value, capital: totalCapital };
+  } else {
+    capitalHistory.push({ date: now, invested, value, capital: totalCapital });
+  }
+  if (capitalHistory.length > 365) capitalHistory = capitalHistory.slice(-365);
+  saveCapitalHistory(capitalHistory);
+}
+
+// Ricostruisce storico dal primo acquisto usando prezzi storici
+function buildHistoricalCapital() {
+  if (positions.length === 0) return;
+  // Trova la data del primo acquisto
+  const firstDate = positions
+    .filter(p => p.buyDate)
+    .map(p => p.buyDate)
+    .sort()[0];
+  if (!firstDate) return;
+
+  // Usa i closes salvati per ricostruire il valore giornaliero
+  const dateMap = {};
+  positions.forEach(p => {
+    if (!p._closes || !p.buyDate) return;
+    const buyTimestamp = new Date(p.buyDate).getTime();
+    p._closes.forEach((entry) => {
+      const { date, close } = entry;
+      if (new Date(date).getTime() < buyTimestamp) return;
+      if (!dateMap[date]) dateMap[date] = { invested: 0, value: 0 };
+      dateMap[date].invested += convertToEur(p.buyPrice * p.qty, p.currency);
+      dateMap[date].value += convertToEur(close * p.qty, p.currency);
+    });
+  });
+
+  const totalCapital = capitalData.total || 0;
+  const history = Object.keys(dateMap).sort().map(date => ({
+    date,
+    invested: dateMap[date].invested,
+    value: dateMap[date].value,
+    capital: totalCapital
+  }));
+
+  if (history.length > 0) {
+    capitalHistory = history;
+    saveCapitalHistory(capitalHistory);
+  }
+}
+
+// Render KPI capitale
+function renderCapitalKPIs() {
+  const totalCapital = capitalData.total || 0;
+  const invested = calcInvestedCostEur();
+  const currentValue = calcInvestedEur();
+  const liquidity = totalCapital - invested;
+  const liquidityPct = totalCapital > 0 ? (liquidity / totalCapital) * 100 : 0;
+
+  const fmt = n => "€" + Math.round(n).toLocaleString("it-IT");
+
+  document.getElementById("kpiTotalCapital").textContent = totalCapital > 0 ? fmt(totalCapital) : "--";
+  document.getElementById("kpiInvested").textContent = totalCapital > 0 ? fmt(invested) : "--";
+
+  const liqEl = document.getElementById("kpiLiquidity");
+  const liqPctEl = document.getElementById("kpiLiquidityPct");
+  if (totalCapital > 0) {
+    liqEl.textContent = fmt(liquidity);
+    liqEl.style.color = liquidity >= 0 ? "var(--grad2)" : "var(--coral)";
+    liqPctEl.textContent = liquidityPct.toFixed(1) + "%";
+    liqPctEl.style.color = liquidity >= 0 ? "var(--grad2)" : "var(--coral)";
+  } else {
+    liqEl.textContent = "--";
+    liqPctEl.textContent = "--";
+  }
+
+  document.getElementById("kpiEurUsd").textContent = eurUsdRate.toFixed(4);
+
+  // Pre-popola campo input
+  if (totalCapital > 0 && document.getElementById("totalCapitalInput").value === "") {
+    document.getElementById("totalCapitalInput").value = totalCapital;
+  }
+}
+
+// Render grafico capitale
+function renderCapitalChart() {
+  const ctx = document.getElementById("chartCapital");
+  if (!ctx) return;
+  if (capitalHistory.length < 2) {
+    ctx.parentElement.innerHTML = `<div class="empty-state" style="padding:40px"><p>AGGIORNA I PREZZI PIU' VOLTE NEL TEMPO PER VEDERE IL GRAFICO</p></div>`;
+    return;
+  }
+  if (chartCapital) chartCapital.destroy();
+  chartCapital = new Chart(ctx.getContext("2d"), {
+    type: "line",
+    data: {
+      labels: capitalHistory.map(h => h.date),
+      datasets: [
+        {
+          label: "Valore Portafoglio",
+          data: capitalHistory.map(h => h.value),
+          borderColor: "#00d4b8",
+          backgroundColor: "rgba(0,212,184,0.08)",
+          fill: true, tension: 0.3, pointRadius: 3
+        },
+        {
+          label: "Capitale Investito",
+          data: capitalHistory.map(h => h.invested),
+          borderColor: "#ffd23f",
+          backgroundColor: "transparent",
+          borderDash: [5,3], tension: 0.3, pointRadius: 2
+        },
+        {
+          label: "Capitale Totale",
+          data: capitalHistory.map(h => h.capital),
+          borderColor: "#4fa3ff",
+          backgroundColor: "transparent",
+          borderDash: [2,4], tension: 0, pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: "#eef1f7", font: { family: "JetBrains Mono", size: 10 } } }
+      },
+      scales: {
+        x: { ticks: { color: "#7d8aa3", font: { size: 10 } }, grid: { color: "#232c3d" } },
+        y: { ticks: { color: "#7d8aa3", font: { size: 10 }, callback: v => "€" + Math.round(v).toLocaleString("it-IT") }, grid: { color: "#232c3d" } }
+      }
+    }
+  });
+}
+
+
+const PALETTE = ["#6e5cff","#00d4b8","#ffd23f","#ff6b6b","#4fa3ff","#c77dff","#48cae4","#f72585","#80ed99","#ff9f1c"];
+
+// ── CAPITALE BUTTONS ──────────────────────────────────────────────────
+document.getElementById("btnSetCapital").addEventListener("click", () => {
+  const val = parseFloat(document.getElementById("totalCapitalInput").value);
+  if (!val || val <= 0) { alert("Inserisci un importo valido."); return; }
+  capitalData.total = val;
+  saveCapital(capitalData);
+  snapshotCapital();
+  renderCapitalKPIs();
+  renderCapitalChart();
+  alert(`✓ Capitale impostato a €${val.toLocaleString("it-IT")}`);
+});
+
+document.getElementById("btnAddLiquidity").addEventListener("click", () => {
+  const add = parseFloat(prompt("Quanta liquidità vuoi aggiungere? (€)"));
+  if (!add || add <= 0) return;
+  capitalData.total = (capitalData.total || 0) + add;
+  document.getElementById("totalCapitalInput").value = capitalData.total;
+  saveCapital(capitalData);
+  snapshotCapital();
+  renderCapitalKPIs();
+  renderCapitalChart();
+  alert(`✓ Aggiunto €${add.toLocaleString("it-IT")} — Totale: €${capitalData.total.toLocaleString("it-IT")}`);
+});
+
+
+
+// ── EXCHANGE SUFFIX ───────────────────────────────────────────────────
+function updateTickerSuffix() {
+  const exchange = document.getElementById("fExchange").value;
+  const currency = document.getElementById("fCurrency");
+  const region = document.getElementById("fRegion");
+  if (exchange === ".MI" || exchange === ".PA" || exchange === ".DE" || exchange === ".SW") {
+    currency.value = exchange === ".SW" ? "CHF" : "EUR";
+    region.value = "Europa";
+  } else if (exchange === ".L") {
+    currency.value = "GBP";
+    region.value = "Europa";
+  } else {
+    currency.value = "USD";
+    region.value = "USA";
+  }
+}
+window.updateTickerSuffix = updateTickerSuffix;
+
+// ── EDIT POSITION MODAL ───────────────────────────────────────────────
+const modalEditOverlay = document.getElementById("modalEditOverlay");
+let editingPositionId = null;
+
+function openEditPosition(id) {
+  const p = positions.find(x => x.id === id);
+  if (!p) return;
+  editingPositionId = id;
+  document.getElementById("eTicker").value = p.ticker;
+  document.getElementById("eName").value = p.name;
+  document.getElementById("eQty").value = p.qty;
+  document.getElementById("ePrice").value = p.buyPrice;
+  document.getElementById("eDate").value = p.buyDate || "";
+  document.getElementById("eCurrency").value = p.currency || "USD";
+  document.getElementById("eSector").value = p.sector || "Altro";
+  document.getElementById("eRegion").value = p.region || "USA";
+  modalEditOverlay.classList.add("show");
+}
+window.openEditPosition = openEditPosition;
+
+document.getElementById("btnCancelEdit").addEventListener("click", () => {
+  modalEditOverlay.classList.remove("show");
+});
+modalEditOverlay.addEventListener("click", (e) => {
+  if (e.target === modalEditOverlay) modalEditOverlay.classList.remove("show");
+});
+
+document.getElementById("btnSaveEdit").addEventListener("click", async () => {
+  const p = positions.find(x => x.id === editingPositionId);
+  if (!p) return;
+  p.ticker = document.getElementById("eTicker").value.trim().toUpperCase();
+  p.name = document.getElementById("eName").value.trim() || p.ticker;
+  p.qty = parseFloat(document.getElementById("eQty").value) || p.qty;
+  p.buyPrice = parseFloat(document.getElementById("ePrice").value) || p.buyPrice;
+  p.buyDate = document.getElementById("eDate").value || p.buyDate;
+  p.currency = document.getElementById("eCurrency").value;
+  p.sector = document.getElementById("eSector").value;
+  p.region = document.getElementById("eRegion").value;
+  p.currentPrice = null;
+  await savePositions(positions);
+  modalEditOverlay.classList.remove("show");
+  renderAll();
+});
+
+// ── TECHNICAL INDICATORS ──────────────────────────────────────────────
+function calcSMA(closes, period) {
+  if (closes.length < period) return null;
+  return closes.slice(-period).reduce((a, b) => a + b, 0) / period;
+}
+
+function calcRSI(closes, period = 14) {
+  if (closes.length < period + 1) return null;
+  const recent = closes.slice(-(period + 1));
+  let gains = 0, losses = 0;
+  for (let i = 1; i < recent.length; i++) {
+    const diff = recent[i] - recent[i - 1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period, avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  return 100 - (100 / (1 + avgGain / avgLoss));
+}
+
+function getSignal(price, sma21, sma100, sma200, rsi) {
+  if (!price || !sma21) return { label: "--", color: "var(--muted)" };
+  const ab21 = price > sma21;
+  const ab100 = sma100 ? price > sma100 : null;
+  const ab200 = sma200 ? price > sma200 : null;
+  if (rsi && rsi < 30 && ab21) return { label: "IPERVENDUTO", color: "#00d4b8" };
+  if (rsi && rsi > 70) return { label: "IPERCOMPRATO", color: "#ff7700" };
+  if (ab21 && ab100 !== false && ab200 !== false) return { label: "BUY", color: "#00d4b8" };
+  if (!ab21 && ab100 === false) return { label: "SELL", color: "#ff6b6b" };
+  return { label: "NEUTRO", color: "#ffd23f" };
+}
+
+
+
+// ── MODAL ────────────────────────────────────────────────────────────
+const modalOverlay = document.getElementById("modalOverlay");
+document.getElementById("btnAddPosition").addEventListener("click", () => {
+  document.getElementById("fDate").value = new Date().toISOString().slice(0,10);
+  modalOverlay.classList.add("show");
+});
+document.getElementById("btnCancelAdd").addEventListener("click", () => {
+  modalOverlay.classList.remove("show");
+});
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove("show");
+});
+
+document.getElementById("btnSaveAdd").addEventListener("click", () => {
+  const ticker = document.getElementById("fTicker").value.trim().toUpperCase();
+  const name = document.getElementById("fName").value.trim() || ticker;
+  const qty = parseFloat(document.getElementById("fQty").value);
+  const price = parseFloat(document.getElementById("fPrice").value);
+  const date = document.getElementById("fDate").value;
+  const currency = document.getElementById("fCurrency").value;
+  const sector = document.getElementById("fSector").value;
+  const region = document.getElementById("fRegion").value;
+
+  if (!ticker || !qty || !price || !date) {
+    alert("Compila almeno Ticker, Quantita', Prezzo e Data.");
+    return;
+  }
+
+  positions.push({
+    id: Date.now().toString(),
+    ticker, name, qty, buyPrice: price, buyDate: date, currency, sector, region,
+    currentPrice: null, ath: null, dayHigh: null, dayLow: null, lastFetch: null
+  });
+  savePositions(positions);
+
+  // reset form
+  ["fTicker","fName","fQty","fPrice"].forEach(id => document.getElementById(id).value = "");
+  modalOverlay.classList.remove("show");
+  renderAll();
+});
+
+// ── DELETE POSITION ──────────────────────────────────────────────────
+async function deletePosition(id) {
+  if (!confirm("Eliminare questa posizione?")) return;
+  positions = positions.filter(p => p.id !== id);
+  await deletePositionFromDB(id);
+  renderAll();
+}
+window.deletePosition = deletePosition;
+
+// ── CLOSE POSITION (PARZIALE / TOTALE) ────────────────────────────────
+const modalCloseOverlay = document.getElementById("modalCloseOverlay");
+let closingPositionId = null;
+
+function openClosePosition(id) {
+  const p = positions.find(x => x.id === id);
+  if (!p) return;
+  closingPositionId = id;
+  const sym = p.currency === "USD" ? "$" : "€";
+  document.getElementById("closeInfo").textContent =
+    `${p.ticker} — possiedi ${p.qty} a prezzo medio ${sym}${p.buyPrice.toFixed(2)}. Prezzo attuale: ${sym}${(p.currentPrice||p.buyPrice).toFixed(2)}`;
+  document.getElementById("cQty").value = "";
+  document.getElementById("cQty").max = p.qty;
+  document.getElementById("cPrice").value = p.currentPrice || p.buyPrice;
+  document.getElementById("cDate").value = new Date().toISOString().slice(0,10);
+  modalCloseOverlay.classList.add("show");
+}
+window.openClosePosition = openClosePosition;
+
+document.getElementById("btnCancelClose").addEventListener("click", () => {
+  modalCloseOverlay.classList.remove("show");
+});
+modalCloseOverlay.addEventListener("click", (e) => {
+  if (e.target === modalCloseOverlay) modalCloseOverlay.classList.remove("show");
+});
+
+document.getElementById("btnConfirmClose").addEventListener("click", () => {
+  const p = positions.find(x => x.id === closingPositionId);
+  if (!p) return;
+
+  const sellQty = parseFloat(document.getElementById("cQty").value);
+  const sellPrice = parseFloat(document.getElementById("cPrice").value);
+  const sellDate = document.getElementById("cDate").value;
+
+  if (!sellQty || sellQty <= 0 || sellQty > p.qty || !sellPrice || !sellDate) {
+    alert("Controlla i valori: la quantita' deve essere tra 0 e " + p.qty);
+    return;
+  }
+
+  // Realized P&L con prezzo medio ponderato (buyPrice è già la media)
+  const realizedPL = (sellPrice - p.buyPrice) * sellQty;
+  const realizedPLPercent = ((sellPrice - p.buyPrice) / p.buyPrice) * 100;
+
+  closedLots.push({
+    id: Date.now().toString(),
+    ticker: p.ticker, name: p.name, qty: sellQty,
+    buyPrice: p.buyPrice, sellPrice, buyDate: p.buyDate, sellDate,
+    currency: p.currency, sector: p.sector, region: p.region,
+    realizedPL, realizedPLPercent
+  });
+  saveClosedLots();
+
+  // Riduci o elimina la posizione
+  if (sellQty >= p.qty) {
+    positions = positions.filter(x => x.id !== p.id);
+  } else {
+    p.qty = p.qty - sellQty;
+    // buyPrice (media ponderata) resta invariato in chiusura parziale semplice
+  }
+  savePositions(positions);
+
+  modalCloseOverlay.classList.remove("show");
+  renderAll();
+});
+
+// ── REBALANCE TARGETS ───────────────────────────────────────────────
+const modalTargetsOverlay = document.getElementById("modalTargetsOverlay");
+document.getElementById("btnOpenTargets").addEventListener("click", () => {
+  renderTargetsForm();
+  modalTargetsOverlay.classList.add("show");
+});
+document.getElementById("btnCancelTargets").addEventListener("click", () => {
+  modalTargetsOverlay.classList.remove("show");
+});
+modalTargetsOverlay.addEventListener("click", (e) => {
+  if (e.target === modalTargetsOverlay) modalTargetsOverlay.classList.remove("show");
+});
+
+function renderTargetsForm() {
+  const wrap = document.getElementById("targetsForm");
+  const tickers = [...new Set(positions.map(p => p.ticker))];
+  const sectors = [...new Set(positions.map(p => p.sector || "Altro"))];
+  const regions = [...new Set(positions.map(p => p.region || "Altro"))];
+
+  let h = "";
+  if (tickers.length) {
+    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Titolo</div><div class="form-grid">`;
+    tickers.forEach(t => {
+      h += `<div class="fg"><label>${t} %</label><input type="number" class="target-input" data-type="ticker" data-key="${t}" value="${targets.ticker[t] ?? ''}" placeholder="--" step="any"></div>`;
+    });
+    h += `</div>`;
+  }
+  if (sectors.length) {
+    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Settore</div><div class="form-grid">`;
+    sectors.forEach(s => {
+      h += `<div class="fg"><label>${s} %</label><input type="number" class="target-input" data-type="sector" data-key="${s}" value="${targets.sector[s] ?? ''}" placeholder="--" step="any"></div>`;
+    });
+    h += `</div>`;
+  }
+  if (regions.length) {
+    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Area Geografica</div><div class="form-grid">`;
+    regions.forEach(r => {
+      h += `<div class="fg"><label>${r} %</label><input type="number" class="target-input" data-type="region" data-key="${r}" value="${targets.region[r] ?? ''}" placeholder="--" step="any"></div>`;
+    });
+    h += `</div>`;
+  }
+  if (!tickers.length) h = `<p style="font-size:12px;color:var(--dim);">Aggiungi posizioni prima di impostare i target.</p>`;
+
+  wrap.innerHTML = h;
+}
+
+document.getElementById("btnSaveTargets").addEventListener("click", () => {
+  document.querySelectorAll(".target-input").forEach(input => {
+    const type = input.dataset.type, key = input.dataset.key;
+    const val = parseFloat(input.value);
+    if (!isNaN(val)) targets[type][key] = val;
+    else delete targets[type][key];
+  });
+  saveTargets();
+  modalTargetsOverlay.classList.remove("show");
+  renderAll();
+});
+
+// ── BACKUP EXPORT / IMPORT ────────────────────────────────────────────
+document.getElementById("btnBackupExport").addEventListener("click", () => {
+  const backup = {
+    version: 1,
+    date: new Date().toISOString(),
+    positions: positions,
+    closedLots: closedLots,
+    targets: targets,
+    fundamentals: fundamentals
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([json], {type: "application/json"}));
+  a.download = "portfolio_backup_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+});
+
+document.getElementById("btnBackupImport").addEventListener("click", () => {
+  document.getElementById("backupFileInput").click();
+});
+
+document.getElementById("backupFileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm("Sei sicuro? Il ripristino sovrascriverà tutti i dati attuali.")) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const backup = JSON.parse(ev.target.result);
+      if (!backup.positions) throw new Error("File non valido");
+      positions = backup.positions || [];
+      closedLots = backup.closedLots || [];
+      targets = backup.targets || { ticker:{}, sector:{}, region:{} };
+      fundamentals = backup.fundamentals || {};
+      savePositions(positions);
+      saveClosedLots();
+      saveTargets();
+      saveFundamentals();
+      e.target.value = "";
+      renderAll();
+      alert("✓ Backup ripristinato — " + positions.length + " posizioni caricate.");
+    } catch(err) {
+      alert("⚠ Errore nel file di backup: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+
+const modalSchedaOverlay = document.getElementById("modalSchedaOverlay");
+let schedaTickerKey = null;
+
+function openScheda(ticker) {
+  schedaTickerKey = ticker;
+  const p = positions.find(x => x.ticker === ticker);
+  document.getElementById("schedaTitle").textContent = `Scheda Titolo — ${ticker}${p ? ' · ' + p.name : ''}`;
+
+  const f = fundamentals[ticker] || {};
+
+  // Auto-popola da Yahoo se disponibile
+  document.getElementById("sPrice").value = f.manualPrice ?? (p ? p.currentPrice || '' : '');
+  document.getElementById("sPriceDate").value = f.manualPriceDate || new Date().toISOString().slice(0,10);
+  document.getElementById("sYearLow").value = f.yearLow ?? (p ? p.yearLow || '' : '');
+  document.getElementById("sYearHigh").value = f.yearHigh ?? (p ? p.yearHigh || '' : '');
+  document.getElementById("fPE").value = f.pe ?? '';
+  document.getElementById("fDivYield").value = f.divYield ?? '';
+  document.getElementById("fBeta").value = f.beta ?? '';
+  document.getElementById("fFairValue").value = f.fairValue ?? '';
+  document.getElementById("fRevenue").value = f.revenue ?? '';
+  document.getElementById("fNetIncome").value = f.netIncome ?? '';
+  document.getElementById("fEbitda").value = f.ebitda ?? '';
+  document.getElementById("fEPS").value = f.eps ?? '';
+  document.getElementById("fTotalAssets").value = f.totalAssets ?? '';
+  document.getElementById("fTotalDebt").value = f.totalDebt ?? '';
+  document.getElementById("fEquity").value = f.equity ?? '';
+  document.getElementById("fOpCashFlow").value = f.opCashFlow ?? '';
+  document.getElementById("fFCF").value = f.fcf ?? '';
+  document.getElementById("fR2").value = f.resistance2 ?? '';
+  document.getElementById("fR1").value = f.resistance1 ?? '';
+  document.getElementById("fS1").value = f.support1 ?? '';
+  document.getElementById("fS2").value = f.support2 ?? '';
+  document.getElementById("fAnalysisTech").value = f.analysisTech ?? '';
+  document.getElementById("fAnalysisFund").value = f.analysisFund ?? '';
+  document.getElementById("fRating").value = f.rating ?? '';
+  document.getElementById("fNotes").value = f.notes ?? '';
+
+  // Mostra indicatori tecnici calcolati automaticamente
+  if (p && p.sma21) {
+    const sig = p.signal || { label: "--", color: "var(--muted)" };
+    const techAuto = `SMA21: ${p.sma21?.toFixed(2) || "--"} | SMA100: ${p.sma100?.toFixed(2) || "--"} | SMA200: ${p.sma200?.toFixed(2) || "--"} | RSI14: ${p.rsi?.toFixed(1) || "--"} | Segnale: ${sig.label}`;
+    if (!document.getElementById("fAnalysisTech").value) {
+      document.getElementById("fAnalysisTech").value = techAuto;
+    }
+  }
+
+  // Capitale investito e valore attuale
+  if (p) {
+    const sym = p.currency === "USD" ? "$" : "€";
+    const invested = p.buyPrice * p.qty;
+    document.getElementById("sInvested").textContent = sym + invested.toLocaleString("it-IT", {maximumFractionDigits:0});
+    updateCurrentValue();
+  }
+
+  // Applica colori dinamici dopo che i valori sono stati inseriti
+  setTimeout(() => {
+    const el = (id) => document.getElementById(id);
+    if (el("fPE") && el("fPE").value) window.colorPE(el("fPE"));
+    if (el("fDivYield") && el("fDivYield").value) window.colorDivYield(el("fDivYield"));
+    if (el("fBeta") && el("fBeta").value) window.colorBeta(el("fBeta"));
+    if (el("fFairValue") && el("fFairValue").value) window.colorFairValue(el("fFairValue"));
+    ["fNetIncome","fEbitda","fEPS","fEquity","fOpCashFlow","fFCF"].forEach(id => {
+      if (el(id) && el(id).value) window.colorBySign(el(id));
+    });
+    if (el("fRevenue") && el("fRevenue").value) applyColor(el("fRevenue"), "positive");
+    if (el("fTotalAssets") && el("fTotalAssets").value) applyColor(el("fTotalAssets"), "positive");
+    if (el("fTotalDebt") && el("fTotalDebt").value) applyColor(el("fTotalDebt"), "negative");
+  }, 150);
+
+  modalSchedaOverlay.classList.add("show");
+
+  // CSV import button
+  document.getElementById("btnImportCSV").onclick = () => {
+    document.getElementById("csvFileInput").click();
+  };
+  document.getElementById("csvFileInput").onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const lines = ev.target.result.split("\n").filter(l => l.trim());
+        const map = {};
+        lines.forEach(line => {
+          const parts = line.split(",");
+          if (parts.length >= 2) {
+            const campo = parts[0].trim();
+            const valore = parts[1].trim();
+            map[campo] = valore;
+          }
+        });
+
+        // Mappa i campi CSV → input della scheda
+        if (map["Prezzo"]) document.getElementById("sPrice").value = map["Prezzo"];
+        if (map["Min 52 Settimane"]) document.getElementById("sYearLow").value = map["Min 52 Settimane"];
+        if (map["Max 52 Settimane"]) document.getElementById("sYearHigh").value = map["Max 52 Settimane"];
+        if (map["P/E Ratio"]) document.getElementById("fPE").value = map["P/E Ratio"];
+        if (map["Rendimento Dividendi"]) document.getElementById("fDivYield").value = map["Rendimento Dividendi"];
+        if (map["Beta 5 anni"]) document.getElementById("fBeta").value = map["Beta 5 anni"];
+        if (map["Fair Value Media"]) document.getElementById("fFairValue").value = map["Fair Value Media"];
+        if (map["Ricavi TTM"]) document.getElementById("fRevenue").value = map["Ricavi TTM"];
+        if (map["Reddito Netto TTM"]) document.getElementById("fNetIncome").value = map["Reddito Netto TTM"];
+        if (map["EBITDA FY dic-25"]) document.getElementById("fEbitda").value = map["EBITDA FY dic-25"];
+        if (map["EPS Diluiti FY dic-25"]) document.getElementById("fEPS").value = map["EPS Diluiti FY dic-25"];
+        if (map["Asset Totali FY dic-25"]) document.getElementById("fTotalAssets").value = map["Asset Totali FY dic-25"];
+        if (map["Debito Totale FY dic-25"]) document.getElementById("fTotalDebt").value = map["Debito Totale FY dic-25"];
+        if (map["Patrimonio Netto FY dic-25"]) document.getElementById("fEquity").value = map["Patrimonio Netto FY dic-25"];
+        if (map["Flusso Cassa Operativo FY dic-25"]) document.getElementById("fOpCashFlow").value = map["Flusso Cassa Operativo FY dic-25"];
+        if (map["Flusso Cassa Libero FY dic-25"]) document.getElementById("fFCF").value = map["Flusso Cassa Libero FY dic-25"];
+        if (map["Resistenza Storica Maggiore"]) document.getElementById("fR2").value = map["Resistenza Storica Maggiore"];
+        if (map["Resistenza Intermedia"]) document.getElementById("fR1").value = map["Resistenza Intermedia"];
+        if (map["Supporto Attuale"]) document.getElementById("fS1").value = map["Supporto Attuale"];
+        if (map["Supporto Critico"]) document.getElementById("fS2").value = map["Supporto Critico"];
+        if (map["Analisi Tecnica"]) document.getElementById("fAnalysisTech").value = map["Analisi Tecnica"];
+        if (map["Analisi Fondamentale"]) document.getElementById("fAnalysisFund").value = map["Analisi Fondamentale"];
+        if (map["Rating Personale"]) document.getElementById("fRating").value = map["Rating Personale"];
+
+        document.getElementById("sPriceDate").value = new Date().toISOString().slice(0,10);
+        document.getElementById("csvImportStatus").textContent = "✓ CSV importato — verifica i campi e premi Salva";
+        document.getElementById("csvImportStatus").style.color = "var(--grad2)";
+        e.target.value = "";
+      } catch(err) {
+        document.getElementById("csvImportStatus").textContent = "⚠ Errore nel parsing del CSV";
+        document.getElementById("csvImportStatus").style.color = "var(--coral)";
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+window.openScheda = openScheda;
+
+document.getElementById("btnCancelScheda").addEventListener("click", () => {
+  modalSchedaOverlay.classList.remove("show");
+});
+modalSchedaOverlay.addEventListener("click", (e) => {
+  if (e.target === modalSchedaOverlay) modalSchedaOverlay.classList.remove("show");
+});
+
+document.getElementById("btnSaveScheda").addEventListener("click", () => {
+  if (!schedaTickerKey) return;
+
+  const manualPrice = parseFloat(document.getElementById("sPrice").value);
+
+  fundamentals[schedaTickerKey] = {
+    manualPrice: isNaN(manualPrice) ? null : manualPrice,
+    manualPriceDate: document.getElementById("sPriceDate").value,
+    yearLow: document.getElementById("sYearLow").value || null,
+    yearHigh: document.getElementById("sYearHigh").value || null,
+    pe: document.getElementById("fPE").value || null,
+    divYield: document.getElementById("fDivYield").value || null,
+    beta: document.getElementById("fBeta").value || null,
+    fairValue: document.getElementById("fFairValue").value || null,
+    revenue: document.getElementById("fRevenue").value || null,
+    netIncome: document.getElementById("fNetIncome").value || null,
+    ebitda: document.getElementById("fEbitda").value || null,
+    eps: document.getElementById("fEPS").value || null,
+    totalAssets: document.getElementById("fTotalAssets").value || null,
+    totalDebt: document.getElementById("fTotalDebt").value || null,
+    equity: document.getElementById("fEquity").value || null,
+    opCashFlow: document.getElementById("fOpCashFlow").value || null,
+    fcf: document.getElementById("fFCF").value || null,
+    resistance2: document.getElementById("fR2").value || null,
+    resistance1: document.getElementById("fR1").value || null,
+    support1: document.getElementById("fS1").value || null,
+    support2: document.getElementById("fS2").value || null,
+    analysisTech: document.getElementById("fAnalysisTech").value || null,
+    analysisFund: document.getElementById("fAnalysisFund").value || null,
+    rating: document.getElementById("fRating").value || null,
+    notes: document.getElementById("fNotes").value || null,
+  };
+  saveFundamentals();
+
+  if (!isNaN(manualPrice)) {
+    positions.forEach(p => {
+      if (p.ticker === schedaTickerKey) {
+        p.currentPrice = manualPrice;
+        p.isManual = true;
+        p.lastFetch = new Date(document.getElementById("sPriceDate").value).toISOString();
+      }
+    });
+    savePositions(positions);
+  }
+
+  modalSchedaOverlay.classList.remove("show");
+  renderAll();
+});
+
+// ── FETCH PRICES FROM YAHOO ──────────────────────────────────────────
+async function fetchYahooData(ticker) {
+  const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=max&interval=1d`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const data = await res.json();
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error("Nessun dato");
+
+  const meta = result.meta;
+  const closes = (result.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+  const ath = closes.length ? Math.max(...closes, meta.regularMarketPrice) : meta.regularMarketPrice;
+
+  // Indicatori tecnici
+  const sma21 = calcSMA(closes, 21);
+  const sma100 = calcSMA(closes, 100);
+  const sma200 = calcSMA(closes, 200);
+  const rsi = calcRSI(closes, 14);
+  const signal = getSignal(meta.regularMarketPrice, sma21, sma100, sma200, rsi);
+
+  return {
+    price: meta.regularMarketPrice,
+    currency: meta.currency,
+    dayHigh: meta.regularMarketDayHigh,
+    dayLow: meta.regularMarketDayLow,
+    yearHigh: meta.fiftyTwoWeekHigh,
+    yearLow: meta.fiftyTwoWeekLow,
+    ath, closes,
+    closesWithDates: (result.timestamp || []).map((ts, i) => ({ date: new Date(ts * 1000).toISOString().slice(0,10), close: (result.indicators?.quote?.[0]?.close || [])[i] })).filter(d => d.close != null),
+    name: meta.longName || meta.shortName || ticker,
+    // Fondamentali da meta
+    pe: meta.trailingPE || null,
+    eps: meta.epsTrailingTwelveMonths || null,
+    marketCap: meta.marketCap || null,
+    // Tecnica
+    sma21, sma100, sma200, rsi, signal
+  };
+}
+
+document.getElementById("btnRefresh").addEventListener("click", refreshAllPrices);
+
+async function refreshAllPrices() {
+  if (positions.length === 0) { alert("Aggiungi prima una posizione."); return; }
+  const btn = document.getElementById("btnRefresh");
+  btn.disabled = true;
+  btn.textContent = "⏳ AGGIORNAMENTO...";
+
+  // Fetch EUR/USD first
+  await fetchEurUsd();
+
+  for (let i = 0; i < positions.length; i++) {
+    try {
+      const data = await fetchYahooData(positions[i].ticker);
+      positions[i].currentPrice = data.price;
+      positions[i].ath = data.ath;
+      positions[i].dayHigh = data.dayHigh;
+      positions[i].dayLow = data.dayLow;
+      positions[i].yearHigh = data.yearHigh;
+      positions[i].yearLow = data.yearLow;
+      positions[i].sma21 = data.sma21;
+      positions[i].sma100 = data.sma100;
+      positions[i].sma200 = data.sma200;
+      positions[i].rsi = data.rsi;
+      positions[i].signal = data.signal;
+      positions[i].lastFetch = new Date().toISOString();
+      positions[i].isManual = false;
+      // Salva closes con date per grafico storico (solo in memoria, non in Supabase)
+      positions[i]._closes = data.closesWithDates || [];
+      if (!positions[i].name || positions[i].name === positions[i].ticker) {
+        positions[i].name = data.name;
+      }
+      // Salva fondamentali automatici se disponibili
+      if (data.pe || data.eps) {
+        if (!fundamentals[positions[i].ticker]) fundamentals[positions[i].ticker] = {};
+        if (data.pe) fundamentals[positions[i].ticker].pe = data.pe.toFixed(1);
+        if (data.eps) fundamentals[positions[i].ticker].eps = data.eps.toFixed(2);
+        if (data.yearHigh) fundamentals[positions[i].ticker].yearHigh = data.yearHigh.toFixed(2);
+        if (data.yearLow) fundamentals[positions[i].ticker].yearLow = data.yearLow.toFixed(2);
+      }
+    } catch(e) {
+      console.error("Errore fetch " + positions[i].ticker, e);
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  savePositions(positions);
+  saveFundamentals();
+  buildHistoricalCapital();
+  snapshotCapital();
+  btn.disabled = false;
+  btn.textContent = "↻ AGGIORNA PREZZI";
+  document.getElementById("lastUpdate").textContent = "AGGIORNATO " + new Date().toLocaleTimeString("it-IT", {hour:"2-digit", minute:"2-digit"});
+  renderAll();
+}
+
+// ── CALCULATIONS ──────────────────────────────────────────────────────
+function calcPortfolioStats() {
+  let totalValue = 0, totalCost = 0;
+  positions.forEach(p => {
+    const price = p.currentPrice || p.buyPrice;
+    totalValue += price * p.qty;
+    totalCost += p.buyPrice * p.qty;
+  });
+  const totalPL = totalValue - totalCost;
+  const totalReturn = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
+  return { totalValue, totalCost, totalPL, totalReturn };
+}
+
+// Sortino / Sharpe approssimati su rendimenti giornalieri simulati da prezzo medio ponderato
+// (semplificazione ragionevole senza serie storica completa del portafoglio)
+function calcRiskMetrics() {
+  const withPrices = positions.filter(p => p.currentPrice);
+  if (withPrices.length === 0) return { sortino: null, sharpe: null, maxDD: null, vol: null };
+
+  // Rendimento % per ogni posizione, usato come proxy di dispersione
+  const returns = withPrices.map(p => ((p.currentPrice - p.buyPrice) / p.buyPrice));
+  const avg = returns.reduce((a,b) => a+b, 0) / returns.length;
+  const variance = returns.reduce((a,b) => a + Math.pow(b-avg,2), 0) / returns.length;
+  const vol = Math.sqrt(variance) * 100;
+
+  const downside = returns.filter(r => r < 0);
+  const downsideVar = downside.length ? downside.reduce((a,b) => a + b*b, 0) / downside.length : 0;
+  const downsideDev = Math.sqrt(downsideVar);
+
+  const riskFree = 0.02; // 2% annuo approssimato
+  const sharpe = vol > 0 ? (avg - riskFree) / (vol/100) : null;
+  const sortino = downsideDev > 0 ? (avg - riskFree) / downsideDev : null;
+
+  // Max drawdown approssimato sulla posizione peggiore
+  const worst = Math.min(...returns) * 100;
+
+  return {
+    sortino: sortino,
+    sharpe: sharpe,
+    maxDD: worst,
+    vol: vol
+  };
+}
+
+// ── RENDER: HERO + KPI ────────────────────────────────────────────────
+function renderHero() {
+  const stats = calcPortfolioStats();
+  const heroReturn = document.getElementById("heroReturn");
+  const heroValue = document.getElementById("heroValue");
+  const heroPL = document.getElementById("heroPL");
+
+  heroReturn.textContent = (stats.totalReturn >= 0 ? "+" : "") + stats.totalReturn.toFixed(1) + "%";
+  heroReturn.className = "v " + (stats.totalReturn >= 0 ? "up" : "down");
+
+  heroValue.textContent = "€" + stats.totalValue.toLocaleString("it-IT", {maximumFractionDigits:0});
+
+  heroPL.textContent = (stats.totalPL >= 0 ? "+€" : "-€") + Math.abs(stats.totalPL).toLocaleString("it-IT", {maximumFractionDigits:0});
+  heroPL.className = "v " + (stats.totalPL >= 0 ? "up" : "down");
+
+  const risk = calcRiskMetrics();
+  document.getElementById("kpiSortino").textContent = risk.sortino != null ? risk.sortino.toFixed(2) : "--";
+  document.getElementById("kpiSharpe").textContent = risk.sharpe != null ? risk.sharpe.toFixed(2) : "--";
+  document.getElementById("kpiMaxDD").textContent = risk.maxDD != null ? risk.maxDD.toFixed(1)+"%" : "--";
+  document.getElementById("kpiVol").textContent = risk.vol != null ? risk.vol.toFixed(1)+"%" : "--";
+  document.getElementById("kpiPositions").textContent = positions.length;
+}
+
+// ── RENDER: TABLE ──────────────────────────────────────────────────────
+function renderTable() {
+  const wrap = document.getElementById("positionsTableWrap");
+  document.getElementById("posCount").textContent = positions.length + " titoli";
+
+  if (positions.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><div class="ic">◌</div><p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p></div>`;
+    return;
+  }
+
+  let h = `<table><tr>
+    <th>Ticker</th><th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>P&amp;L %</th><th>P&amp;L Val.</th><th>Peso</th><th></th>
+  </tr>`;
+
+  const stats = calcPortfolioStats();
+
+  positions.forEach(p => {
+    const price = p.currentPrice || p.buyPrice;
+    const pl = ((price - p.buyPrice) / p.buyPrice) * 100;
+    const plAbs = (price - p.buyPrice) * p.qty;
+    const value = price * p.qty;
+    const weight = stats.totalValue > 0 ? (value / stats.totalValue) * 100 : 0;
+    const sym = p.currency === "USD" ? "$" : "€";
+    const f = fundamentals[p.ticker] || {};
+    const sig = p.signal || { label: "--", color: "var(--muted)" };
+
+    // Badge rating da CSV
+    let ratingBadge = "";
+    if (f.rating) {
+      const r = f.rating.toUpperCase();
+      const col = r.includes("SPECULAT") ? "#ff7700" :
+                  r.includes("BUY") || r.includes("ACQUIST") ? "#00d4b8" :
+                  r.includes("VENDI") || r.includes("SELL") ? "#ff6b6b" : "#7d8aa3";
+      ratingBadge = `<span style="font-size:9px;font-weight:700;color:${col};background:${col}22;padding:2px 7px;border-radius:6px;margin-left:4px;letter-spacing:0.5px;" title="${f.analysisTech||''}">${r.split('-')[0].trim()}</span>`;
+    }
+
+    // Badge supporto/resistenza vicino al prezzo
+    let srBadge = "";
+    if (f.support1 && f.resistance1) {
+      const s1 = parseFloat(f.support1), r1 = parseFloat(f.resistance1);
+      const distS = Math.abs((price - s1) / price) * 100;
+      const distR = Math.abs((r1 - price) / price) * 100;
+      if (distS < 5) srBadge = `<span style="font-size:9px;color:#ff6b6b;margin-left:4px;" title="Vicino al supporto $${s1}">▼S</span>`;
+      else if (distR < 5) srBadge = `<span style="font-size:9px;color:#ffd23f;margin-left:4px;" title="Vicino alla resistenza $${r1}">▲R</span>`;
+    }
+
+    // Segnale tecnico
+    const signalBadge = `<span style="font-size:9px;font-weight:700;color:${sig.color};background:${sig.color}22;padding:2px 7px;border-radius:6px;margin-left:4px;">${sig.label}</span>`;
+
+    h += `<tr>
+      <td>
+        <a class="tick" href="https://finance.yahoo.com/quote/${p.ticker}" target="_blank">${p.ticker}</a>
+        <span class="icon-btn" onclick="openScheda('${p.ticker}')" title="Scheda titolo" style="cursor:pointer;color:var(--sun);font-size:11px;">📋</span>
+        <a href="https://finance.yahoo.com/chart/${p.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;">📈</a>
+        ${p.isManual ? `<span class="manual-badge">M</span>` : ''}
+        ${ratingBadge}${srBadge}
+      </td>
+      <td>
+        <div>${p.name}</div>
+        <div style="margin-top:3px;">${signalBadge}</div>
+      </td>
+      <td>${p.qty}</td>
+      <td>${sym}${p.buyPrice.toFixed(2)}</td>
+      <td style="color:var(--dim);font-family:'JetBrains Mono',monospace;">${sym}${(p.buyPrice*p.qty).toLocaleString("it-IT",{maximumFractionDigits:0})}</td>
+      <td>${sym}${price.toFixed(2)}</td>
+      <td><span class="chip ${pl>=0?'up':'down'}">${pl>=0?'+':''}${pl.toFixed(1)}%</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${plAbs>=0?'#00d4b8':'#ff6b6b'}">${plAbs>=0?'+':''}${sym}${Math.abs(plAbs).toFixed(0)}</td>
+      <td>${weight.toFixed(1)}%</td>
+      <td class="row-actions">
+        <button class="icon-btn" onclick="openEditPosition('${p.id}')" title="Modifica" style="color:var(--blue)">✎</button>
+        <button class="icon-btn" onclick="openClosePosition('${p.id}')" title="Chiudi posizione" style="color:var(--grad2)">⊟</button>
+        <button class="icon-btn" onclick="deletePosition('${p.id}')" title="Elimina">✕</button>
+      </td>
+    </tr>`;
+  });
+
+  h += "</table>";
+  wrap.innerHTML = h;
+}
+
+// ── RENDER: CHARTS ────────────────────────────────────────────────────
+function renderCharts() {
+  const stats = calcPortfolioStats();
+  if (positions.length === 0 || stats.totalValue === 0) {
+    if (chartTicker) { chartTicker.destroy(); chartTicker = null; }
+    if (chartSector) { chartSector.destroy(); chartSector = null; }
+    return;
+  }
+
+  // By Ticker
+  const tickerData = positions.map(p => {
+    const price = p.currentPrice || p.buyPrice;
+    return { label: p.ticker, value: price * p.qty };
+  });
+
+  const ctxT = document.getElementById("chartByTicker").getContext("2d");
+  if (chartTicker) chartTicker.destroy();
+  chartTicker = new Chart(ctxT, {
+    type: "doughnut",
+    data: {
+      labels: tickerData.map(d => d.label),
+      datasets: [{
+        data: tickerData.map(d => d.value),
+        backgroundColor: PALETTE,
+        borderColor: "#161d29",
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { color: "#eef1f7", font: { family: "JetBrains Mono", size: 10 }, padding: 10, boxWidth: 10 } }
+      }
+    }
+  });
+
+  // By Sector
+  const sectorMap = {};
+  positions.forEach(p => {
+    const price = p.currentPrice || p.buyPrice;
+    const val = price * p.qty;
+    const sec = p.sector || "Altro";
+    sectorMap[sec] = (sectorMap[sec] || 0) + val;
+  });
+
+  const ctxS = document.getElementById("chartBySector").getContext("2d");
+  if (chartSector) chartSector.destroy();
+  chartSector = new Chart(ctxS, {
+    type: "doughnut",
+    data: {
+      labels: Object.keys(sectorMap),
+      datasets: [{
+        data: Object.values(sectorMap),
+        backgroundColor: PALETTE.slice().reverse(),
+        borderColor: "#161d29",
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { color: "#eef1f7", font: { family: "JetBrains Mono", size: 10 }, padding: 10, boxWidth: 10 } }
+      }
+    }
+  });
+}
+
+// ── RENDER: NEWS LINKS ────────────────────────────────────────────────
+function renderNews() {
+  const wrap = document.getElementById("newsPositions");
+  if (positions.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div>`;
+    return;
+  }
+
+  let h = "";
+  positions.forEach(p => {
+    h += `<div class="news-item">
+      <span class="news-tick">${p.ticker}</span>
+      <a class="news-title" href="https://finance.yahoo.com/quote/${p.ticker}/news" target="_blank">
+        Vedi tutte le news per ${p.name} →
+      </a>
+    </div>`;
+  });
+  wrap.innerHTML = h;
+}
+
+// ── PORTAFOGLI MODELLO ────────────────────────────────────────────────
+const MODEL_PORTFOLIOS = [
+  {
+    id: "conservativo",
+    name: "Conservativo",
+    icon: "🛡️",
+    desc: "Dividendi stabili, bassa volatilità. Ideale per chi vuole proteggere il capitale.",
+    color: "#00d4b8",
+    sector: { "Finanziario": 25, "Utilities": 20, "Salute": 20, "Consumer": 15, "Industriali": 10, "Energia": 10 },
+    region: { "USA": 60, "Europa": 40 }
+  },
+  {
+    id: "bilanciato",
+    name: "Bilanciato",
+    icon: "⚖️",
+    desc: "Mix di crescita e stabilità. Adatto alla maggior parte degli investitori.",
+    color: "#4fa3ff",
+    sector: { "Tecnologia": 25, "Salute": 20, "Finanziario": 20, "Consumer": 15, "Industriali": 10, "Utilities": 10 },
+    region: { "USA": 70, "Europa": 30 }
+  },
+  {
+    id: "aggressivo",
+    name: "Aggressivo",
+    icon: "🚀",
+    desc: "Massima crescita, alta volatilità. Orizzonte temporale lungo (7+ anni).",
+    color: "#6e5cff",
+    sector: { "Tecnologia": 45, "Salute": 20, "Consumer": 15, "Industriali": 10, "Energia": 10 },
+    region: { "USA": 80, "Europa": 20 }
+  },
+  {
+    id: "allweather",
+    name: "All Weather",
+    icon: "🌦️",
+    desc: "Filosofia Ray Dalio. Resistente a qualsiasi scenario economico.",
+    color: "#ffd23f",
+    sector: { "Industriali": 30, "Utilities": 25, "Finanziario": 20, "Energia": 15, "Materiali": 10 },
+    region: { "USA": 55, "Europa": 30, "Altro": 15 }
+  },
+  {
+    id: "buffett",
+    name: "Warren Buffett",
+    icon: "🎩",
+    desc: "Value investing. Aziende con moat solido, P/E basso, dividendi crescenti.",
+    color: "#ff9f1c",
+    sector: { "Finanziario": 35, "Consumer": 25, "Industriali": 20, "Energia": 10, "Salute": 10 },
+    region: { "USA": 85, "Europa": 15 }
+  },
+  {
+    id: "tech",
+    name: "Tech Focus",
+    icon: "💻",
+    desc: "Concentrato su tecnologia e innovazione. Alto rischio, alto potenziale.",
+    color: "#c77dff",
+    sector: { "Tecnologia": 60, "Salute": 15, "Consumer": 15, "Industriali": 10 },
+    region: { "USA": 85, "Altro": 15 }
+  }
+];
+
+function renderModelPortfolios() {
+  const wrap = document.getElementById("modelPortfolios");
+  if (!wrap) return;
+  let h = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">`;
+  MODEL_PORTFOLIOS.forEach(mp => {
+    const sectors = Object.entries(mp.sector).map(([k,v]) =>
+      `<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #1a2030;">
+        <span style="color:var(--dim)">${k}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${mp.color}">${v}%</span>
+      </div>`).join("");
+    h += `<div style="background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;border-top:3px solid ${mp.color};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:18px;">${mp.icon}</span>
+        <span style="font-weight:800;font-size:14px;">${mp.name}</span>
+      </div>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:12px;line-height:1.5;">${mp.desc}</p>
+      ${sectors}
+      <button onclick="applyModelPortfolio('${mp.id}')" style="margin-top:12px;width:100%;background:${mp.color}22;color:${mp.color};border:1px solid ${mp.color};border-radius:8px;padding:8px;font-family:'Manrope',sans-serif;font-weight:700;font-size:11px;cursor:pointer;letter-spacing:1px;">
+        APPLICA COME TARGET →
+      </button>
+    </div>`;
+  });
+  h += "</div>";
+  wrap.innerHTML = h;
+}
+
+window.applyModelPortfolio = function(id) {
+  const mp = MODEL_PORTFOLIOS.find(m => m.id === id);
+  if (!mp) return;
+  targets.sector = { ...mp.sector };
+  targets.region = { ...mp.region };
+  saveTargets();
+  renderRebalance();
+  alert(`✓ Target "${mp.name}" applicato! Controlla il pannello Ribilanciamento.`);
+};
+
+
+// ── WATCHLIST ─────────────────────────────────────────────────────────
+let watchlist = loadWatchlist();
+
+function loadWatchlist() {
+  try { return JSON.parse(localStorage.getItem(getStorageKey("portfolio_watchlist")) || "[]"); } catch(e) { return []; }
+}
+function saveWatchlist() {
+  try { localStorage.setItem(getStorageKey("portfolio_watchlist"), JSON.stringify(watchlist)); } catch(e) {}
+}
+
+const modalWatchOverlay = document.getElementById("modalWatchOverlay");
+document.getElementById("btnAddWatch").addEventListener("click", () => {
+  document.getElementById("wTicker").value = "";
+  document.getElementById("wName").value = "";
+  modalWatchOverlay.classList.add("show");
+});
+document.getElementById("btnCancelWatch").addEventListener("click", () => modalWatchOverlay.classList.remove("show"));
+modalWatchOverlay.addEventListener("click", e => { if (e.target === modalWatchOverlay) modalWatchOverlay.classList.remove("show"); });
+
+document.getElementById("btnSaveWatch").addEventListener("click", () => {
+  const ticker = document.getElementById("wTicker").value.trim().toUpperCase();
+  const name = document.getElementById("wName").value.trim() || ticker;
+  const sector = document.getElementById("wSector").value;
+  if (!ticker) return;
+  if (watchlist.find(w => w.ticker === ticker)) { alert("Già in watchlist."); return; }
+  watchlist.push({ ticker, name, sector, price: null, high52: null, low52: null, change: null, changePct: null });
+  saveWatchlist();
+  modalWatchOverlay.classList.remove("show");
+  renderWatchlist();
+  fetchWatchPrice(ticker);
+});
+
+document.getElementById("btnImportWatchExcel").addEventListener("click", () => {
+  document.getElementById("watchExcelInput").click();
+});
+
+document.getElementById("watchExcelInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      let rows = [];
+      if (file.name.endsWith(".csv")) {
+        // Parse CSV
+        const lines = ev.target.result.split("\n").filter(l => l.trim());
+        lines.slice(1).forEach(line => {
+          const parts = line.split(",").map(p => p.trim().replace(/"/g,""));
+          if (parts[0]) rows.push({ ticker: parts[0].toUpperCase(), name: parts[1] || parts[0], sector: parts[2] || "Altro" });
+        });
+      } else {
+        // Parse Excel
+        const wb = XLSX.read(ev.target.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        data.slice(1).forEach(row => {
+          if (row[0]) rows.push({ ticker: String(row[0]).toUpperCase(), name: row[1] || row[0], sector: row[2] || "Altro" });
+        });
+      }
+      let added = 0;
+      rows.forEach(r => {
+        if (!watchlist.find(w => w.ticker === r.ticker)) {
+          watchlist.push({ ticker: r.ticker, name: r.name, sector: r.sector, price: null, high52: null, low52: null, change: null, changePct: null });
+          added++;
+        }
+      });
+      saveWatchlist();
+      renderWatchlist();
+      e.target.value = "";
+      alert(`✓ Importati ${added} ticker. Premi ↻ per aggiornare i prezzi.`);
+    } catch(err) {
+      alert("Errore nel file: " + err.message);
+    }
+  };
+  if (file.name.endsWith(".csv")) reader.readAsText(file);
+  else reader.readAsBinaryString(file);
+});
+
+
+
+async function fetchWatchPrice(ticker) {
+  try {
+    const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1d&interval=1d`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta) return;
+    const w = watchlist.find(x => x.ticker === ticker);
+    if (!w) return;
+    w.price = meta.regularMarketPrice;
+    w.high52 = meta.fiftyTwoWeekHigh;
+    w.low52 = meta.fiftyTwoWeekLow;
+    w.change = meta.regularMarketPrice - meta.chartPreviousClose;
+    w.changePct = ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100;
+    w.currency = meta.currency;
+    if (w.name === w.ticker && meta.longName) w.name = meta.longName;
+    saveWatchlist();
+    renderWatchlist();
+  } catch(e) {}
+}
+
+async function refreshWatchlist() {
+  for (const w of watchlist) {
+    await fetchWatchPrice(w.ticker);
+    await new Promise(r => setTimeout(r, 400));
+  }
+}
+
+function removeWatch(ticker) {
+  watchlist = watchlist.filter(w => w.ticker !== ticker);
+  saveWatchlist();
+  renderWatchlist();
+}
+window.removeWatch = removeWatch;
+
+function renderWatchlist() {
+  const wrap = document.getElementById("watchlistWrap");
+  if (!wrap) return;
+  if (watchlist.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>`;
+    return;
+  }
+  let h = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">TICKER</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VAR%</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W MIN/MAX</th>
+      <th style="padding:4px;"></th>
+    </tr>`;
+  watchlist.forEach(w => {
+    const sym = w.currency === "EUR" ? "€" : "$";
+    const chg = w.changePct;
+    const chgColor = chg == null ? "var(--dim)" : chg >= 0 ? "#00d4b8" : "#ff6b6b";
+    h += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:9px 8px;">
+        <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
+        <div style="font-size:10px;color:var(--dim);margin-top:2px;">${w.name}</div>
+      </td>
+      <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;">
+        ${w.price != null ? sym + w.price.toFixed(2) : "--"}
+      </td>
+      <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${chgColor};">
+        ${chg != null ? (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%" : "--"}
+      </td>
+      <td style="text-align:right;padding:9px 8px;font-size:10px;color:var(--dim);">
+        ${w.low52 != null ? sym + w.low52.toFixed(2) + " / " + sym + w.high52.toFixed(2) : "--"}
+      </td>
+      <td style="padding:9px 4px;">
+        <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
+      </td>
+    </tr>`;
+  });
+  h += "</table>";
+  wrap.innerHTML = h;
+}
+
+function renderRebalance() {
+  const wrap = document.getElementById("rebalanceWrap");
+  const hasTargets = Object.keys(targets.ticker).length || Object.keys(targets.sector).length || Object.keys(targets.region).length;
+
+  if (positions.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE I SUGGERIMENTI</p></div>`;
+    return;
+  }
+  if (!hasTargets) {
+    wrap.innerHTML = `<div class="empty-state"><p>IMPOSTA I TARGET (⚙) PER VEDERE I SUGGERIMENTI</p></div>`;
+    return;
+  }
+
+  const stats = calcPortfolioStats();
+  let h = "";
+
+  function buildRows(type, label) {
+    const groups = {};
+    positions.forEach(p => {
+      const price = p.currentPrice || p.buyPrice;
+      const val = price * p.qty;
+      const key = type === "ticker" ? p.ticker : type === "sector" ? (p.sector||"Altro") : (p.region||"Altro");
+      groups[key] = (groups[key] || 0) + val;
+    });
+
+    const keysWithTarget = Object.keys(targets[type]);
+    if (!keysWithTarget.length) return "";
+
+    let rows = `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">${label}</div>`;
+    keysWithTarget.forEach(key => {
+      const currentVal = groups[key] || 0;
+      const currentPct = stats.totalValue > 0 ? (currentVal / stats.totalValue) * 100 : 0;
+      const targetPct = targets[type][key];
+      const diffPct = currentPct - targetPct;
+      const targetVal = (targetPct/100) * stats.totalValue;
+      const diffVal = currentVal - targetVal;
+
+      const action = Math.abs(diffPct) < 1 ? "OK" : (diffVal > 0 ? "VENDI" : "COMPRA");
+      const actionColor = action === "OK" ? "var(--grad2)" : (action === "VENDI" ? "var(--coral)" : "var(--sun)");
+
+      rows += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #1a2030;">
+        <div>
+          <div style="font-weight:700;font-size:13px;">${key}</div>
+          <div style="font-size:10px;color:var(--dim);margin-top:2px;">Attuale ${currentPct.toFixed(1)}% &middot; Target ${targetPct}%</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:${actionColor};">${action}</div>
+          ${action !== "OK" ? `<div style="font-size:10px;color:var(--dim);margin-top:2px;">€${Math.abs(diffVal).toLocaleString('it-IT',{maximumFractionDigits:0})}</div>` : ""}
+        </div>
+      </div>`;
+    });
+    return rows;
+  }
+
+  h += buildRows("ticker", "Per Titolo");
+  h += buildRows("sector", "Per Settore");
+  h += buildRows("region", "Per Area Geografica");
+
+  wrap.innerHTML = h || `<div class="empty-state"><p>NESSUN TARGET CORRISPONDENTE ALLE POSIZIONI ATTUALI</p></div>`;
+}
+
+// ── RENDER ALL ─────────────────────────────────────────────────────────
+function renderAll() {
+  renderHero();
+  renderTable();
+  renderCharts();
+  renderCapitalKPIs();
+  renderCapitalChart();
+  renderNews();
+  renderWatchlist();
+  renderRebalance();
+  renderModelPortfolios();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById("lastUpdate").textContent = "CARICAMENTO...";
+  document.getElementById("positionsTableWrap").innerHTML = `
+    <div class="empty-state"><div class="ic">⏳</div><p>CARICAMENTO DATI DAL DATABASE...</p></div>`;
+  try {
+    await Promise.all([loadAllData(), fetchEurUsd()]);
+    document.getElementById("lastUpdate").textContent = positions.length > 0 ? "DATI CARICATI" : "MAI AGGIORNATO";
+  } catch(e) {
+    console.error("Errore init:", e);
+    document.getElementById("lastUpdate").textContent = "ERRORE CARICAMENTO";
+  }
+  renderAll();
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────
+document.getElementById("btnLogout").addEventListener("click", () => {
+  if (!confirm("Vuoi uscire?")) return;
+  try { localStorage.removeItem(AUTH_KEY); } catch(e) {}
+  currentUser = null;
+  positions = []; closedLots = []; fundamentals = {}; targets = { ticker:{}, sector:{}, region:{} };
+  document.getElementById("appContent").style.display = "none";
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("loginPassword").value = "";
+  document.getElementById("loginErr").textContent = "";
+});
+
+// ── AUTO-LOGIN ────────────────────────────────────────────────────────
+(function checkAuth() {
+  try {
+    const saved = localStorage.getItem(AUTH_KEY);
+    if (saved && USERS[saved]) {
+      currentUser = saved;
+      document.getElementById("loginUser").value = saved;
+      showApp(saved);
+    }
+  } catch(e) {}
+})();
+
+</script>
+</body>
+</html>
