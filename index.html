@@ -2274,7 +2274,9 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
 async function refreshWatchlist() {
   const btn = document.getElementById("btnRefreshWatch");
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  console.log("Watchlist refresh - titoli:", watchlist.length, "user:", currentUser);
   for (const w of watchlist) {
+    console.log("Fetching:", w.ticker);
     await fetchWatchPrice(w.ticker);
     await new Promise(r => setTimeout(r, 600));
   }
