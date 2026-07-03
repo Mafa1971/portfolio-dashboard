@@ -2271,13 +2271,24 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
 
 
 
+async function refreshWatchlist() {
+  const btn = document.getElementById("btnRefreshWatch");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  for (const w of watchlist) {
+    await fetchWatchPrice(w.ticker);
+    await new Promise(r => setTimeout(r, 600));
+  }
+  if (btn) { btn.disabled = false; btn.textContent = "↻"; }
+}
+
 async function fetchWatchPrice(ticker) {
   try {
     const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1d&interval=1d`;
     const res = await fetch(url);
+    if (!res.ok) return;
     const data = await res.json();
     const meta = data?.chart?.result?.[0]?.meta;
-    if (!meta) return;
+    if (!meta || !meta.regularMarketPrice) return;
     const w = watchlist.find(x => x.ticker === ticker);
     if (!w) return;
     w.price = meta.regularMarketPrice;
@@ -2286,16 +2297,11 @@ async function fetchWatchPrice(ticker) {
     w.change = meta.regularMarketPrice - meta.chartPreviousClose;
     w.changePct = ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100;
     w.currency = meta.currency;
-    if (w.name === w.ticker && meta.longName) w.name = meta.longName;
+    if ((!w.name || w.name === w.ticker) && meta.longName) w.name = meta.longName;
     saveWatchlist();
     renderWatchlist();
-  } catch(e) {}
-}
-
-async function refreshWatchlist() {
-  for (const w of watchlist) {
-    await fetchWatchPrice(w.ticker);
-    await new Promise(r => setTimeout(r, 400));
+  } catch(e) {
+    console.log(`Watchlist skip ${ticker}:`, e.message);
   }
 }
 
