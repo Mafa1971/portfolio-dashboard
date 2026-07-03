@@ -93,8 +93,25 @@ td:first-child,td:nth-child(2){text-align:left;}
   padding:9px 11px;font-family:'Manrope',sans-serif;font-size:13px;border-radius:8px;outline:none;
 }
 .fg input:focus,.fg select:focus{border-color:var(--grad1);}
-/* Allow JS color overrides on inputs */
-.fg input[style*="color"]{color:inherit;}
+/* TAB BAR */
+.tab-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--panel);border-top:1px solid var(--line);
+  display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom);
+}
+.tab-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:10px 4px;background:none;border:none;color:var(--dim);cursor:pointer;
+  font-family:'Manrope',sans-serif;gap:3px;transition:color 0.2s;
+}
+.tab-btn.active{color:var(--grad1);}
+.tab-btn:hover{color:var(--txt);}
+.tab-icon{font-size:18px;line-height:1;}
+.tab-label{font-size:9px;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;}
+.tab-content{display:none;padding-bottom:80px;}
+.tab-content.active{display:block;}
+body{padding-bottom:0;}
+
 
 /* MODAL */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center;padding:20px;}
@@ -192,135 +209,143 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
 </div>
 
-<!-- HERO -->
-<div class="hero-card">
-  <div class="hero-row">
-    <div class="hero-kpi"><div class="v" id="heroReturn">--</div><div class="l">RENDIMENTO TOTALE</div></div>
-    <div class="hero-kpi"><div class="v" id="heroValue">--</div><div class="l">VALORE PORTAFOGLIO</div></div>
-    <div class="hero-kpi"><div class="v" id="heroPL" style="font-size:24px">--</div><div class="l">P&amp;L ASSOLUTO</div></div>
-  </div>
-</div>
-
-<!-- KPI CARDS -->
-<div class="cards">
-  <div class="card"><div class="v neutral" id="kpiSortino">--</div><div class="l">Sortino Ratio</div></div>
-  <div class="card"><div class="v" style="color:var(--grad2)" id="kpiSharpe">--</div><div class="l">Sharpe Ratio</div></div>
-  <div class="card"><div class="v down" id="kpiMaxDD">--</div><div class="l">Max Drawdown</div></div>
-  <div class="card"><div class="v" id="kpiVol">--</div><div class="l">Volatilita' Annua</div></div>
-  <div class="card"><div class="v" id="kpiPositions">0</div><div class="l">Posizioni Attive</div></div>
-</div>
-
-<!-- CAPITALE TOTALE -->
-<div class="panel" style="margin-bottom:20px;">
-  <div class="panel-title">
-    CAPITALE &amp; LIQUIDITA'
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="number" id="totalCapitalInput" placeholder="Es. 10000" step="any"
-        style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;width:140px;outline:none;">
-      <button class="btn" id="btnSetCapital" style="padding:6px 14px;font-size:10px;">IMPOSTA €</button>
-      <button class="btn ghost" id="btnAddLiquidity" style="padding:6px 14px;font-size:10px;">+ AGGIUNGI LIQUIDITA'</button>
+<!-- TAB CONTENT -->
+<div id="tabPortfolio" class="tab-content active">
+  <!-- HERO -->
+  <div class="hero-card">
+    <div class="hero-row">
+      <div class="hero-kpi"><div class="v" id="heroReturn">--</div><div class="l">RENDIMENTO TOTALE</div></div>
+      <div class="hero-kpi"><div class="v" id="heroValue">--</div><div class="l">VALORE PORTAFOGLIO</div></div>
+      <div class="hero-kpi"><div class="v" id="heroPL" style="font-size:24px">--</div><div class="l">P&amp;L ASSOLUTO</div></div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:4px;">
-    <div class="card"><div class="v" id="kpiTotalCapital" style="color:var(--blue)">--</div><div class="l">Capitale Totale €</div></div>
-    <div class="card"><div class="v" id="kpiInvested" style="color:var(--sun)">--</div><div class="l">Investito €</div></div>
-    <div class="card"><div class="v" id="kpiLiquidity" style="color:var(--grad2)">--</div><div class="l">Liquidita' €</div></div>
-    <div class="card"><div class="v" id="kpiLiquidityPct" style="color:var(--grad2)">--</div><div class="l">Liquidita' %</div></div>
-    <div class="card"><div class="v" id="kpiEurUsd" style="color:var(--dim)">--</div><div class="l">EUR/USD</div></div>
+  <!-- KPI CARDS -->
+  <div class="cards">
+    <div class="card"><div class="v neutral" id="kpiSortino">--</div><div class="l">Sortino Ratio</div></div>
+    <div class="card"><div class="v" style="color:var(--grad2)" id="kpiSharpe">--</div><div class="l">Sharpe Ratio</div></div>
+    <div class="card"><div class="v down" id="kpiMaxDD">--</div><div class="l">Max Drawdown</div></div>
+    <div class="card"><div class="v" id="kpiVol">--</div><div class="l">Volatilita' Annua</div></div>
+    <div class="card"><div class="v" id="kpiPositions">0</div><div class="l">Posizioni Attive</div></div>
   </div>
-</div>
-
-<!-- MAIN GRID -->
-<div class="main-grid">
-  <div class="col">
-    <!-- POSITIONS TABLE -->
-    <div class="panel">
-      <div class="panel-title">POSIZIONI <span class="sub" id="posCount">0 titoli</span></div>
-      <div id="positionsTableWrap">
-        <div class="empty-state">
-          <div class="ic">◌</div>
-          <p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p>
-        </div>
+  <!-- CAPITALE -->
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-title">
+      CAPITALE &amp; LIQUIDITA'
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="number" id="totalCapitalInput" placeholder="Es. 10000" step="any"
+          style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;width:140px;outline:none;">
+        <button class="btn" id="btnSetCapital" style="padding:6px 14px;font-size:10px;">IMPOSTA €</button>
+        <button class="btn ghost" id="btnAddLiquidity" style="padding:6px 14px;font-size:10px;">+ AGGIUNGI LIQUIDITA'</button>
       </div>
     </div>
-
-    <!-- REBALANCE -->
-    <div class="panel">
-      <div class="panel-title">RIBILANCIAMENTO <button class="btn ghost" id="btnOpenTargets" style="padding:5px 12px;font-size:10px;">⚙ TARGET</button></div>
-      <div id="rebalanceWrap">
-        <div class="empty-state"><p>IMPOSTA I TARGET PER VEDERE I SUGGERIMENTI</p></div>
-      </div>
-    </div>
-
-    <!-- PORTAFOGLI MODELLO -->
-    <div class="panel">
-      <div class="panel-title">PORTAFOGLI MODELLO <span class="sub">clicca per applicare i target</span></div>
-      <div id="modelPortfolios"></div>
-    </div>
-
-    <!-- CHARTS -->
-    <div class="panel">
-      <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
-      <div class="chart-row">
-        <div>
-          <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER TITOLO</div>
-          <div class="chart-wrap"><canvas id="chartByTicker"></canvas></div>
-        </div>
-        <div>
-          <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER SETTORE</div>
-          <div class="chart-wrap"><canvas id="chartBySector"></canvas></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CAPITAL CHART -->
-    <div class="panel">
-      <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
-      <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:4px;">
+      <div class="card"><div class="v" id="kpiTotalCapital" style="color:var(--blue)">--</div><div class="l">Capitale Totale €</div></div>
+      <div class="card"><div class="v" id="kpiInvested" style="color:var(--sun)">--</div><div class="l">Investito €</div></div>
+      <div class="card"><div class="v" id="kpiLiquidity" style="color:var(--grad2)">--</div><div class="l">Liquidita' €</div></div>
+      <div class="card"><div class="v" id="kpiLiquidityPct" style="color:var(--grad2)">--</div><div class="l">Liquidita' %</div></div>
+      <div class="card"><div class="v" id="kpiEurUsd" style="color:var(--dim)">--</div><div class="l">EUR/USD</div></div>
     </div>
   </div>
-
-  <div class="col">
-    <!-- NEWS PER TITOLO -->
-    <div class="panel">
-      <div class="panel-title">NEWS POSIZIONI</div>
-      <div id="newsPositions">
-        <div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div>
+  <!-- POSIZIONI -->
+  <div class="panel">
+    <div class="panel-title">POSIZIONI <span class="sub" id="posCount">0 titoli</span></div>
+    <div id="positionsTableWrap">
+      <div class="empty-state"><div class="ic">◌</div><p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p></div>
+    </div>
+  </div>
+  <!-- NEWS -->
+  <div class="panel">
+    <div class="panel-title">NEWS POSIZIONI</div>
+    <div id="newsPositions"><div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div></div>
+  </div>
+  <!-- CHARTS -->
+  <div class="panel">
+    <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
+    <div class="chart-row">
+      <div>
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER TITOLO</div>
+        <div class="chart-wrap"><canvas id="chartByTicker"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER SETTORE</div>
+        <div class="chart-wrap"><canvas id="chartBySector"></canvas></div>
       </div>
     </div>
-
-    <!-- WATCHLIST -->
-    <div class="panel">
-      <div class="panel-title">WATCHLIST
-        <button class="btn ghost" id="btnAddWatch" style="padding:5px 12px;font-size:10px;">+ AGGIUNGI</button>
-        <button class="btn ghost" id="btnImportWatchExcel" style="padding:5px 12px;font-size:10px;">📊 EXCEL</button>
-        <input type="file" id="watchExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
-        <button class="btn ghost" id="btnRefreshWatch" style="padding:5px 12px;font-size:10px;">↻</button>
-      </div>
-      <div id="watchlistWrap">
-        <div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>
-      </div>
-    </div>
-
-    <!-- NEWS GENERALI -->
-    <div class="panel">
-      <div class="panel-title">MERCATI</div>
-      <div id="newsGeneral">
-        <div class="news-item">
-          <a class="news-title" href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank">Yahoo Finance — Ultime notizie sui mercati →</a>
-        </div>
-        <div class="news-item">
-          <a class="news-title" href="https://finance.yahoo.com/topic/economic-news/" target="_blank">Yahoo Finance — Notizie economiche →</a>
-        </div>
-        <div class="news-item">
-          <a class="news-title" href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/finanza.html" target="_blank">Borsa Italiana — Notizie finanza →</a>
-        </div>
-      </div>
+  </div>
+  <!-- CAPITAL CHART -->
+  <div class="panel">
+    <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
+    <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
+  </div>
+  <!-- NEWS GENERALI -->
+  <div class="panel">
+    <div class="panel-title">MERCATI</div>
+    <div id="newsGeneral">
+      <div class="news-item"><a class="news-title" href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank">Yahoo Finance — Ultime notizie sui mercati →</a></div>
+      <div class="news-item"><a class="news-title" href="https://finance.yahoo.com/topic/economic-news/" target="_blank">Yahoo Finance — Notizie economiche →</a></div>
+      <div class="news-item"><a class="news-title" href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/finanza.html" target="_blank">Borsa Italiana — Notizie finanza →</a></div>
     </div>
   </div>
 </div>
 
-<footer>DATI: YAHOO FINANCE (NON UFFICIALE) — SOLO INFORMATIVO — NON CONSULENZA FINANZIARIA</footer>
+<!-- TAB STATISTICHE -->
+<div id="tabStatistiche" class="tab-content">
+  <div class="panel">
+    <div class="panel-title">STATISTICHE TRADING</div>
+    <div id="statsWrap"><div class="empty-state"><p>CHIUDI DELLE POSIZIONI PER VEDERE LE STATISTICHE</p></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">STORICO OPERAZIONI CHIUSE</div>
+    <div id="closedLotsWrap"><div class="empty-state"><p>NESSUNA OPERAZIONE CHIUSA</p></div></div>
+  </div>
+</div>
+
+<!-- TAB WATCHLIST -->
+<div id="tabWatchlist" class="tab-content">
+  <div class="panel">
+    <div class="panel-title">WATCHLIST
+      <button class="btn ghost" id="btnAddWatch" style="padding:5px 12px;font-size:10px;">+ AGGIUNGI</button>
+      <button class="btn ghost" id="btnImportWatchExcel" style="padding:5px 12px;font-size:10px;">📊 EXCEL</button>
+      <input type="file" id="watchExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
+      <button class="btn ghost" id="btnRefreshWatch" style="padding:5px 12px;font-size:10px;">↻</button>
+    </div>
+    <div id="watchlistWrap"><div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div></div>
+  </div>
+</div>
+
+<!-- TAB RIBILANCIAMENTO -->
+<div id="tabRibilanciamento" class="tab-content">
+  <div class="panel">
+    <div class="panel-title">RIBILANCIAMENTO <button class="btn ghost" id="btnOpenTargets" style="padding:5px 12px;font-size:10px;">⚙ TARGET</button></div>
+    <div id="rebalanceWrap"><div class="empty-state"><p>IMPOSTA I TARGET PER VEDERE I SUGGERIMENTI</p></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">PORTAFOGLI MODELLO <span class="sub">clicca per applicare i target</span></div>
+    <div id="modelPortfolios"></div>
+  </div>
+</div>
+
+<!-- TAB BAR -->
+<nav class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('Portfolio')" id="tabBtnPortfolio">
+    <span class="tab-icon">📊</span>
+    <span class="tab-label">Portfolio</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('Statistiche')" id="tabBtnStatistiche">
+    <span class="tab-icon">📈</span>
+    <span class="tab-label">Statistiche</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('Watchlist')" id="tabBtnWatchlist">
+    <span class="tab-icon">👁</span>
+    <span class="tab-label">Watchlist</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('Ribilanciamento')" id="tabBtnRibilanciamento">
+    <span class="tab-icon">⚖️</span>
+    <span class="tab-label">Ribilanc.</span>
+  </button>
+</nav>
+
+<footer style="margin-bottom:70px;">DATI: YAHOO FINANCE (NON UFFICIALE) — SOLO INFORMATIVO — NON CONSULENZA FINANZIARIA</footer>
 
 <!-- MODAL ADD POSITION -->
 <div class="modal-overlay" id="modalOverlay">
@@ -958,24 +983,17 @@ function snapshotCapital() {
 // Ricostruisce storico dal primo acquisto usando prezzi storici
 function buildHistoricalCapital() {
   if (positions.length === 0) return;
-  // Trova la data del primo acquisto
-  const firstDate = positions
-    .filter(p => p.buyDate)
-    .map(p => p.buyDate)
-    .sort()[0];
-  if (!firstDate) return;
 
-  // Usa i closes salvati per ricostruire il valore giornaliero
   const dateMap = {};
   positions.forEach(p => {
-    if (!p._closes || !p.buyDate) return;
+    if (!p._closes || !p.buyDate || p._closes.length === 0) return;
     const buyTimestamp = new Date(p.buyDate).getTime();
     p._closes.forEach((entry) => {
-      const { date, close } = entry;
-      if (new Date(date).getTime() < buyTimestamp) return;
-      if (!dateMap[date]) dateMap[date] = { invested: 0, value: 0 };
-      dateMap[date].invested += convertToEur(p.buyPrice * p.qty, p.currency);
-      dateMap[date].value += convertToEur(close * p.qty, p.currency);
+      if (!entry || !entry.date || !entry.close) return;
+      if (new Date(entry.date).getTime() < buyTimestamp) return;
+      if (!dateMap[entry.date]) dateMap[entry.date] = { invested: 0, value: 0 };
+      dateMap[entry.date].invested += convertToEur(p.buyPrice * p.qty, p.currency);
+      dateMap[entry.date].value += convertToEur(entry.close * p.qty, p.currency);
     });
   });
 
@@ -987,7 +1005,7 @@ function buildHistoricalCapital() {
     capital: totalCapital
   }));
 
-  if (history.length > 0) {
+  if (history.length >= 2) {
     capitalHistory = history;
     saveCapitalHistory(capitalHistory);
   }
@@ -1105,7 +1123,96 @@ document.getElementById("btnAddLiquidity").addEventListener("click", () => {
 
 
 
-// ── EXCHANGE SUFFIX ───────────────────────────────────────────────────
+// ── TAB NAVIGATION ───────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("tab" + name).classList.add("active");
+  document.getElementById("tabBtn" + name).classList.add("active");
+  // Redraw charts when switching to portfolio tab
+  if (name === "Portfolio") {
+    setTimeout(() => { renderCharts(); renderCapitalChart(); }, 50);
+  }
+}
+window.switchTab = switchTab;
+
+// ── STATISTICHE ───────────────────────────────────────────────────────
+function renderStats() {
+  const wrap = document.getElementById("statsWrap");
+  const clWrap = document.getElementById("closedLotsWrap");
+  if (!wrap || !clWrap) return;
+
+  if (closedLots.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>CHIUDI DELLE POSIZIONI PER VEDERE LE STATISTICHE</p></div>`;
+    clWrap.innerHTML = `<div class="empty-state"><p>NESSUNA OPERAZIONE CHIUSA</p></div>`;
+    return;
+  }
+
+  const winners = closedLots.filter(l => l.realizedPL > 0);
+  const losers = closedLots.filter(l => l.realizedPL <= 0);
+  const totalPL = closedLots.reduce((s, l) => s + (l.realizedPL || 0), 0);
+  const totalGains = winners.reduce((s, l) => s + l.realizedPL, 0);
+  const totalLosses = Math.abs(losers.reduce((s, l) => s + l.realizedPL, 0));
+  const profitFactor = totalLosses > 0 ? (totalGains / totalLosses).toFixed(2) : "∞";
+  const winRate = ((winners.length / closedLots.length) * 100).toFixed(1);
+  const avgWin = winners.length > 0 ? (totalGains / winners.length).toFixed(0) : 0;
+  const avgLoss = losers.length > 0 ? (totalLosses / losers.length).toFixed(0) : 0;
+  const best = closedLots.reduce((a, b) => a.realizedPL > b.realizedPL ? a : b);
+  const worst = closedLots.reduce((a, b) => a.realizedPL < b.realizedPL ? a : b);
+
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
+      <div class="card"><div class="v" style="color:${totalPL>=0?'#00d4b8':'#ff6b6b'}">${totalPL>=0?'+':''}€${Math.abs(totalPL).toFixed(0)}</div><div class="l">P&L Realizzato</div></div>
+      <div class="card"><div class="v">${closedLots.length}</div><div class="l">Trade Totali</div></div>
+      <div class="card"><div class="v" style="color:#00d4b8">${winners.length}</div><div class="l">Trade Vincenti</div></div>
+      <div class="card"><div class="v" style="color:#ff6b6b">${losers.length}</div><div class="l">Trade Perdenti</div></div>
+      <div class="card"><div class="v" style="color:${parseFloat(winRate)>=50?'#00d4b8':'#ff6b6b'}">${winRate}%</div><div class="l">Win Rate</div></div>
+      <div class="card"><div class="v" style="color:${parseFloat(profitFactor)>=1?'#00d4b8':'#ff6b6b'}">${profitFactor}</div><div class="l">Profit Factor</div></div>
+      <div class="card"><div class="v" style="color:#00d4b8">+$${avgWin}</div><div class="l">Media Vincente</div></div>
+      <div class="card"><div class="v" style="color:#ff6b6b">-$${avgLoss}</div><div class="l">Media Perdente</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="card">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">MIGLIOR TRADE</div>
+        <div style="font-weight:700;color:#00d4b8">${best.ticker} +${best.realizedPLPercent?.toFixed(1)}%</div>
+        <div style="font-size:11px;color:var(--dim)">${best.sellDate || ''}</div>
+      </div>
+      <div class="card">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">PEGGIOR TRADE</div>
+        <div style="font-weight:700;color:#ff6b6b">${worst.ticker} ${worst.realizedPLPercent?.toFixed(1)}%</div>
+        <div style="font-size:11px;color:var(--dim)">${worst.sellDate || ''}</div>
+      </div>
+    </div>`;
+
+  // Storico operazioni chiuse
+  let h = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">TICKER</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">QTY</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">ACQUISTO</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VENDITA</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P&L</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">DATA</th>
+    </tr>`;
+  closedLots.slice().reverse().forEach(l => {
+    const sym = l.currency === "EUR" ? "€" : "$";
+    const pl = l.realizedPL || 0;
+    const plPct = l.realizedPLPercent || 0;
+    const col = pl >= 0 ? "#00d4b8" : "#ff6b6b";
+    h += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;">${l.ticker}<div style="font-size:10px;color:var(--dim)">${l.name||''}</div></td>
+      <td style="text-align:right;padding:8px;">${l.qty}</td>
+      <td style="text-align:right;padding:8px;font-family:'JetBrains Mono',monospace;">${sym}${l.buyPrice?.toFixed(2)}</td>
+      <td style="text-align:right;padding:8px;font-family:'JetBrains Mono',monospace;">${sym}${l.sellPrice?.toFixed(2)}</td>
+      <td style="text-align:right;padding:8px;font-family:'JetBrains Mono',monospace;color:${col};font-weight:700;">${pl>=0?'+':''}${sym}${Math.abs(pl).toFixed(0)} (${plPct>=0?'+':''}${plPct?.toFixed(1)}%)</td>
+      <td style="text-align:right;padding:8px;font-size:10px;color:var(--dim);">${l.sellDate||''}</td>
+    </tr>`;
+  });
+  h += "</table>";
+  clWrap.innerHTML = h;
+}
+
+
 function updateTickerSuffix() {
   const exchange = document.getElementById("fExchange").value;
   const currency = document.getElementById("fCurrency");
@@ -1677,6 +1784,9 @@ async function refreshAllPrices() {
       positions[i].isManual = false;
       // Salva closes con date per grafico storico (solo in memoria, non in Supabase)
       positions[i]._closes = data.closesWithDates || [];
+      if (positions[i]._closes.length === 0) {
+        console.log(`${positions[i].ticker}: nessun dato storico disponibile`);
+      }
       if (!positions[i].name || positions[i].name === positions[i].ticker) {
         positions[i].name = data.name;
       }
@@ -2259,6 +2369,7 @@ function renderAll() {
   renderWatchlist();
   renderRebalance();
   renderModelPortfolios();
+  renderStats();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
