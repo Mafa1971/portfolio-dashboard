@@ -135,6 +135,7 @@ textarea{
 }
 textarea:focus{border-color:var(--grad1);}
 /* Modal inputs - allow JS color overrides */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
 .modal .fg input[type=number],
 .modal .fg input[type=text] {
   color:var(--txt);
@@ -552,6 +553,14 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
           <option>Immobiliare</option>
           <option>Altro</option>
         </select>
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Prezzo Alert 🟢 (BUY quando prezzo ≥ questo valore)</label>
+        <input type="number" id="wAlertPrice" step="any" placeholder="es. 205.00">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Note</label>
+        <input type="text" id="wNotes" placeholder="es. Acquistare su pullback, supporto a 195">
       </div>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
@@ -2153,6 +2162,8 @@ const modalWatchOverlay = document.getElementById("modalWatchOverlay");
 document.getElementById("btnAddWatch").addEventListener("click", () => {
   document.getElementById("wTicker").value = "";
   document.getElementById("wName").value = "";
+  document.getElementById("wAlertPrice").value = "";
+  document.getElementById("wNotes").value = "";
   modalWatchOverlay.classList.add("show");
 });
 document.getElementById("btnCancelWatch").addEventListener("click", () => modalWatchOverlay.classList.remove("show"));
@@ -2162,9 +2173,21 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
   const ticker = document.getElementById("wTicker").value.trim().toUpperCase();
   const name = document.getElementById("wName").value.trim() || ticker;
   const sector = document.getElementById("wSector").value;
+  const alertPrice = parseFloat(document.getElementById("wAlertPrice").value) || null;
+  const notes = document.getElementById("wNotes").value.trim() || "";
   if (!ticker) return;
-  if (watchlist.find(w => w.ticker === ticker)) { alert("Già in watchlist."); return; }
-  watchlist.push({ ticker, name, sector, price: null, high52: null, low52: null, change: null, changePct: null });
+  const existing = watchlist.find(w => w.ticker === ticker);
+  if (existing) {
+    if (!confirm(`${ticker} è già in watchlist. Vuoi aggiornare le note e l'alert?`)) return;
+    existing.notes = notes;
+    existing.alertPrice = alertPrice;
+    existing.sector = sector;
+    saveWatchlist();
+    renderWatchlist();
+    modalWatchOverlay.classList.remove("show");
+    return;
+  }
+  watchlist.push({ ticker, name, sector, price: null, high52: null, low52: null, change: null, changePct: null, notes, alertPrice, pe: null, marketCap: null, industry: null, country: null });
   saveWatchlist();
   modalWatchOverlay.classList.remove("show");
   renderWatchlist();
@@ -2194,21 +2217,50 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         const wb = XLSX.read(ev.target.result, { type: "binary" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        // Detect Finviz format: Ticker, Company, Sector, Industry, Country, Market Cap (B), P/E
+        const headers = data[0] ? data[0].map(h => String(h || "").toLowerCase()) : [];
+        const isFinviz = headers.includes("company") || headers.includes("market cap (b)");
         data.slice(1).forEach(row => {
-          if (row[0]) rows.push({ ticker: String(row[0]).toUpperCase(), name: row[1] || row[0], sector: row[2] || "Altro" });
+          if (!row[0]) return;
+          if (isFinviz) {
+            rows.push({
+              ticker: String(row[0]).toUpperCase(),
+              name: row[1] || row[0],
+              sector: row[2] || "Altro",
+              industry: row[3] || null,
+              country: row[4] || null,
+              marketCap: row[5] ? parseFloat(row[5]) : null,
+              pe: row[6] ? parseFloat(row[6]) : null
+            });
+          } else {
+            rows.push({ ticker: String(row[0]).toUpperCase(), name: row[1] || row[0], sector: row[2] || "Altro" });
+          }
         });
       }
-      let added = 0;
+      let added = 0, updated = 0, skipped = 0;
       rows.forEach(r => {
-        if (!watchlist.find(w => w.ticker === r.ticker)) {
-          watchlist.push({ ticker: r.ticker, name: r.name, sector: r.sector, price: null, high52: null, low52: null, change: null, changePct: null });
+        const existing = watchlist.find(w => w.ticker === r.ticker);
+        if (existing) {
+          if (confirm(`${r.ticker} è già in watchlist. Vuoi aggiornare i dati?`)) {
+            existing.name = r.name || existing.name;
+            existing.sector = r.sector || existing.sector;
+            existing.industry = r.industry || existing.industry;
+            existing.country = r.country || existing.country;
+            existing.pe = r.pe || existing.pe;
+            existing.marketCap = r.marketCap || existing.marketCap;
+            updated++;
+          } else {
+            skipped++;
+          }
+        } else {
+          watchlist.push({ ticker: r.ticker, name: r.name, sector: r.sector, industry: r.industry || null, country: r.country || null, pe: r.pe || null, marketCap: r.marketCap || null, price: null, high52: null, low52: null, change: null, changePct: null, notes: "", alertPrice: null });
           added++;
         }
       });
       saveWatchlist();
       renderWatchlist();
       e.target.value = "";
-      alert(`✓ Importati ${added} ticker. Premi ↻ per aggiornare i prezzi.`);
+      alert(`✓ Risultato import:\n• Aggiunti: ${added}\n• Aggiornati: ${updated}\n• Saltati: ${skipped}\n\nPremi ↻ per aggiornare i prezzi.`);
     } catch(err) {
       alert("Errore nel file: " + err.message);
     }
@@ -2254,6 +2306,18 @@ function removeWatch(ticker) {
 }
 window.removeWatch = removeWatch;
 
+function editWatch(ticker) {
+  const w = watchlist.find(x => x.ticker === ticker);
+  if (!w) return;
+  document.getElementById("wTicker").value = w.ticker;
+  document.getElementById("wName").value = w.name || "";
+  document.getElementById("wSector").value = w.sector || "Altro";
+  document.getElementById("wAlertPrice").value = w.alertPrice || "";
+  document.getElementById("wNotes").value = w.notes || "";
+  modalWatchOverlay.classList.add("show");
+}
+window.editWatch = editWatch;
+
 function renderWatchlist() {
   const wrap = document.getElementById("watchlistWrap");
   if (!wrap) return;
@@ -2261,23 +2325,43 @@ function renderWatchlist() {
     wrap.innerHTML = `<div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>`;
     return;
   }
-  let h = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;">
     <tr style="border-bottom:1px solid var(--line);">
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">TICKER</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VAR%</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W MIN/MAX</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P/E</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">MKT CAP</th>
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE / ALERT</th>
       <th style="padding:4px;"></th>
     </tr>`;
+
   watchlist.forEach(w => {
     const sym = w.currency === "EUR" ? "€" : "$";
     const chg = w.changePct;
     const chgColor = chg == null ? "var(--dim)" : chg >= 0 ? "#00d4b8" : "#ff6b6b";
+
+    // BUY ALERT logic
+    let alertBadge = "";
+    if (w.alertPrice && w.price != null) {
+      if (w.price >= w.alertPrice) {
+        alertBadge = `<span style="display:inline-block;background:#00d4b822;color:#00d4b8;border:1px solid #00d4b8;font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:1px;animation:pulse 1.5s infinite;">🟢 BUY ALERT</span>`;
+      }
+    }
+
+    const noteText = w.notes ? `<div style="font-size:10px;color:var(--dim);margin-top:3px;">${w.notes}</div>` : "";
+    const alertText = w.alertPrice ? `<div style="font-size:10px;color:#ffd23f;margin-top:2px;">Alert: ${sym}${w.alertPrice}</div>` : "";
+
     h += `<tr style="border-top:1px solid #1a2030;">
       <td style="padding:9px 8px;">
-        <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
-        <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;margin-left:4px;">📈</a>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
+          <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;">📈</a>
+          ${alertBadge}
+        </div>
         <div style="font-size:10px;color:var(--dim);margin-top:2px;">${w.name}</div>
+        <div style="font-size:10px;color:var(--dim);">${w.industry || ""} ${w.country ? "· " + w.country : ""}</div>
       </td>
       <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;">
         ${w.price != null ? sym + w.price.toFixed(2) : "--"}
@@ -2288,12 +2372,22 @@ function renderWatchlist() {
       <td style="text-align:right;padding:9px 8px;font-size:10px;color:var(--dim);">
         ${w.low52 != null ? sym + w.low52.toFixed(2) + " / " + sym + w.high52.toFixed(2) : "--"}
       </td>
-      <td style="padding:9px 4px;">
+      <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
+        ${w.pe != null ? w.pe.toFixed(1) + "x" : "--"}
+      </td>
+      <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
+        ${w.marketCap != null ? "$" + w.marketCap.toFixed(1) + "B" : "--"}
+      </td>
+      <td style="padding:9px 8px;">
+        ${noteText}${alertText}
+      </td>
+      <td style="padding:9px 4px;white-space:nowrap;">
+        <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica note/alert" style="color:var(--blue);">✎</button>
         <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
       </td>
     </tr>`;
   });
-  h += "</table>";
+  h += "</table></div>";
   wrap.innerHTML = h;
 }
 
