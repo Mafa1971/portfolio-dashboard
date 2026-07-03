@@ -2329,7 +2329,6 @@ async function fetchWatchPrice(ticker) {
     if (!meta || !meta.regularMarketPrice) return;
     const w = watchlist.find(x => x.ticker === ticker);
     if (!w) return;
-    // Update only price fields — preserve Finviz fields (pe, marketCap, industry, country)
     w.price = meta.regularMarketPrice;
     w.high52 = meta.fiftyTwoWeekHigh;
     w.low52 = meta.fiftyTwoWeekLow;
@@ -2337,9 +2336,21 @@ async function fetchWatchPrice(ticker) {
     w.changePct = ((meta.regularMarketPrice - meta.chartPreviousClose) / meta.chartPreviousClose) * 100;
     w.currency = meta.currency;
     if ((!w.name || w.name === w.ticker) && meta.longName) w.name = meta.longName;
-    // Only update pe/marketCap from Yahoo if not already set from Finviz
-    if (!w.pe && meta.trailingPE) w.pe = parseFloat(meta.trailingPE.toFixed(2));
-    if (!w.marketCap && meta.marketCap) w.marketCap = parseFloat((meta.marketCap / 1e9).toFixed(2));
+
+    // Fetch PE and Market Cap from quoteSummary
+    try {
+      const qUrl = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&type=quote`;
+      const qRes = await fetch(qUrl);
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        const price = qData?.quoteSummary?.result?.[0]?.price;
+        if (price) {
+          if (price.trailingPE?.raw) w.pe = parseFloat(price.trailingPE.raw.toFixed(2));
+          if (price.marketCap?.raw) w.marketCap = parseFloat((price.marketCap.raw / 1e9).toFixed(2));
+        }
+      }
+    } catch(e2) {}
+
     saveWatchlist();
     renderWatchlist();
   } catch(e) {
