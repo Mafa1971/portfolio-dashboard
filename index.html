@@ -923,11 +923,29 @@ async function loadUserSettings() {
 
 async function saveUserSettings() {
   try {
+    // Serialize watchlist cleanly - only save what we need
+    const cleanWatchlist = watchlist.map(w => ({
+      ticker: w.ticker,
+      name: w.name || w.ticker,
+      sector: w.sector || "Altro",
+      industry: w.industry || null,
+      country: w.country || null,
+      pe: w.pe || null,
+      marketCap: w.marketCap || null,
+      price: w.price || null,
+      high52: w.high52 || null,
+      low52: w.low52 || null,
+      change: w.change || null,
+      changePct: w.changePct || null,
+      currency: w.currency || null,
+      notes: w.notes || "",
+      alertPrice: w.alertPrice || null
+    }));
     await sbFetch("user_settings?on_conflict=user_id", "POST", [{
       user_id: currentUser,
       capital: capitalData.total || 0,
       capital_history: capitalHistory,
-      watchlist: watchlist,
+      watchlist: cleanWatchlist,
       updated_at: new Date().toISOString()
     }]);
   } catch(e) { console.error("Errore salvataggio settings:", e); }
@@ -2253,14 +2271,32 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
             skipped++;
           }
         } else {
-          watchlist.push({ ticker: r.ticker, name: r.name, sector: r.sector, industry: r.industry || null, country: r.country || null, pe: r.pe || null, marketCap: r.marketCap || null, price: null, high52: null, low52: null, change: null, changePct: null, notes: "", alertPrice: null });
+          watchlist.push({
+            ticker: r.ticker,
+            name: r.name,
+            sector: r.sector || "Altro",
+            industry: r.industry || null,
+            country: r.country || null,
+            pe: r.pe || null,
+            marketCap: r.marketCap || null,
+            price: null,
+            high52: null,
+            low52: null,
+            change: null,
+            changePct: null,
+            currency: null,
+            notes: "",
+            alertPrice: null
+          });
           added++;
         }
       });
       saveWatchlist();
       renderWatchlist();
       e.target.value = "";
-      alert(`✓ Risultato import:\n• Aggiunti: ${added}\n• Aggiornati: ${updated}\n• Saltati: ${skipped}\n\nPremi ↻ per aggiornare i prezzi.`);
+      alert(`✓ Risultato import:\n• Aggiunti: ${added}\n• Aggiornati: ${updated}\n• Saltati: ${skipped}\n\nAggiornamento prezzi in corso...`);
+      // Fetch Yahoo prices for all new/updated tickers
+      refreshWatchlist();
     } catch(err) {
       alert("Errore nel file: " + err.message);
     }
