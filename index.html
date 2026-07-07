@@ -2203,6 +2203,8 @@ async function checkWatchlistAlerts() {
     if (w.price < w.alertPrice) alertedTickers.delete(w.ticker);
   }
 }
+window.checkWatchlistAlerts = checkWatchlistAlerts;
+window.sendTelegramAlert = sendTelegramAlert;
 
 function buyFromWatchlist(ticker) {
   const w = watchlist.find(x => x.ticker === ticker);
