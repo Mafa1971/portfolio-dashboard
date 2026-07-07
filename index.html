@@ -2408,6 +2408,7 @@ async function refreshWatchlist() {
     await new Promise(r => setTimeout(r, 700));
   }
   if (btn) { btn.disabled = false; btn.textContent = "↻ AGGIORNA"; }
+  await saveUserSettings();
   checkWatchlistAlerts();
 }
 window.refreshWatchlist = refreshWatchlist;
@@ -2444,11 +2445,9 @@ async function fetchWatchPrice(ticker) {
       }
     } catch(e2) {}
 
-    saveWatchlist();
     renderWatchlist();
-    checkWatchlistAlerts();
   } catch(e) {
-    console.log(`Watchlist skip ${ticker}:`, e.message);
+    console.log(`Skip ${ticker}:`, e.message);
   }
 }
 
