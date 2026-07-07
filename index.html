@@ -201,6 +201,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <h1>PORTFOLIO <span id="userBadge" style="font-size:11px;color:var(--grad2);font-weight:400;letter-spacing:2px;margin-left:8px;"></span></h1>
   <div class="hdr-right">
     <span class="badge" id="lastUpdate">MAI AGGIORNATO</span>
+    <span id="autoRefreshBadge" style="display:none;font-size:9px;color:#00d4b8;letter-spacing:1px;padding:4px 8px;border:1px solid #00d4b844;border-radius:6px;">⟳ AUTO 15m</span>
     <button class="btn" id="btnAddPosition">+ NUOVA POSIZIONE</button>
     <button class="btn" id="btnBackupExport">💾 BACKUP</button>
     <button class="btn" id="btnBackupImport">📥 RIPRISTINA</button>
@@ -669,6 +670,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div><!-- end appContent -->
 
 <script>
+
 // ── LOGIN 2 UTENTI ────────────────────────────────────────────────────
 const USERS = {
   fabrizio: { password: "Marinportfoglio2026.", name: "FABRIZIO" },
@@ -700,6 +702,8 @@ function showApp(user) {
   document.getElementById("appContent").style.display = "block";
   document.getElementById("userBadge").textContent = USERS[user]?.name || user.toUpperCase();
   init();
+  // Start auto-refresh after data loads
+  setTimeout(startAutoRefresh, 5000);
 }
 
 // ── COLOR FUNCTIONS PER SCHEDA TITOLO ────────────────────────────────
@@ -2170,6 +2174,47 @@ window.applyModelPortfolio = function(id) {
 };
 
 
+// ── TELEGRAM ALERTS ───────────────────────────────────────────────────
+const alertedTickers = new Set();
+
+async function sendTelegramAlert(ticker, price, alertPrice, name) {
+  try {
+    const message = `🟢 <b>BUY ALERT — ${ticker}</b>\n\n` +
+      `📈 <b>${name}</b>\n` +
+      `💰 Prezzo attuale: <b>${price.toFixed(2)}</b>\n` +
+      `🎯 Alert impostato: <b>${alertPrice.toFixed(2)}</b>\n\n` +
+      `Il prezzo ha superato il tuo target!`;
+    await fetch("/.netlify/functions/telegram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user: currentUser, message })
+    });
+  } catch(e) { console.log("Errore Telegram:", e.message); }
+}
+
+function checkWatchlistAlerts() {
+  watchlist.forEach(w => {
+    if (!w.alertPrice || !w.price) return;
+    if (w.price >= w.alertPrice && !alertedTickers.has(w.ticker)) {
+      alertedTickers.add(w.ticker);
+      sendTelegramAlert(w.ticker, w.price, w.alertPrice, w.name);
+    }
+    if (w.price < w.alertPrice) alertedTickers.delete(w.ticker);
+  });
+}
+
+function buyFromWatchlist(ticker) {
+  const w = watchlist.find(x => x.ticker === ticker);
+  if (!w) return;
+  document.getElementById("fTicker").value = w.ticker;
+  document.getElementById("fName").value = w.name || w.ticker;
+  document.getElementById("fBuyPrice").value = w.price ? w.price.toFixed(2) : "";
+  document.getElementById("fCurrency").value = w.currency === "EUR" ? "EUR" : "USD";
+  document.getElementById("fSector").value = w.sector || "Altro";
+  document.getElementById("modalOverlay").classList.add("show");
+}
+window.buyFromWatchlist = buyFromWatchlist;
+
 // ── WATCHLIST ─────────────────────────────────────────────────────────
 let watchlist = [];
 
@@ -2307,7 +2352,46 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
 
 
 
-async function refreshWatchlist() {
+// ── AUTO-REFRESH WATCHLIST ────────────────────────────────────────────
+let autoRefreshInterval = null;
+
+function isMarketHours() {
+  const now = new Date();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  const totalMin = hour * 60 + min;
+  // 9:00 - 21:00 ora locale
+  return totalMin >= 540 && totalMin <= 1260;
+}
+
+function startAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  autoRefreshInterval = setInterval(async () => {
+    if (!currentUser) return;
+    if (!isMarketHours()) {
+      document.getElementById("autoRefreshBadge").style.display = "none";
+      return;
+    }
+    if (watchlist.length === 0) return;
+    document.getElementById("autoRefreshBadge").style.display = "inline";
+    console.log("Auto-refresh watchlist:", new Date().toLocaleTimeString());
+    await refreshWatchlist();
+  }, 15 * 60 * 1000);
+  // Show badge if in market hours
+  if (isMarketHours()) {
+    document.getElementById("autoRefreshBadge").style.display = "inline";
+  }
+  console.log("Auto-refresh attivato — ogni 15 min dalle 9:00 alle 21:00");
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+}
+
+
   const btn = document.getElementById("btnRefreshWatch");
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
   console.log("Watchlist refresh - titoli:", watchlist.length, "user:", currentUser);
@@ -2353,6 +2437,7 @@ async function fetchWatchPrice(ticker) {
 
     saveWatchlist();
     renderWatchlist();
+    checkWatchlistAlerts();
   } catch(e) {
     console.log(`Watchlist skip ${ticker}:`, e.message);
   }
@@ -2442,6 +2527,7 @@ function renderWatchlist() {
       </td>
       <td style="padding:9px 4px;white-space:nowrap;">
         <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica note/alert" style="color:var(--blue);">✎</button>
+        <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">BUY</button>
         <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
       </td>
     </tr>`;
@@ -2543,6 +2629,7 @@ async function init() {
 // ── LOGOUT ────────────────────────────────────────────────────────────
 document.getElementById("btnLogout").addEventListener("click", () => {
   if (!confirm("Vuoi uscire?")) return;
+  stopAutoRefresh();
   try { localStorage.removeItem(AUTH_KEY); } catch(e) {}
   currentUser = null;
   positions = []; closedLots = []; fundamentals = {}; targets = { ticker:{}, sector:{}, region:{} };
@@ -2563,6 +2650,7 @@ document.getElementById("btnLogout").addEventListener("click", () => {
     }
   } catch(e) {}
 })();
+
 
 </script>
 </body>
