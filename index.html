@@ -2183,13 +2183,22 @@ async function sendTelegramAlert(ticker, price, alertPrice, name) {
     const message = `🟢 <b>BUY ALERT — ${ticker}</b>\n\n` +
       `📈 <b>${name}</b>\n` +
       `💰 Prezzo attuale: <b>${price.toFixed(2)}</b>\n` +
-      `🎯 Alert impostato: <b>${alertPrice.toFixed(2)}</b>\n\n` +
-      `Il prezzo ha superato il tuo target!`;
-    await fetch("/.netlify/functions/telegram", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user: currentUser, message })
-    });
+      `🎯 Alert impostato: <b>${alertPrice.toFixed(2)}</b>\n` +
+      `👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\n` +
+      `Il prezzo ha superato il target!`;
+    await Promise.all([
+      fetch("/.netlify/functions/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: "fabrizio", message })
+      }),
+      fetch("/.netlify/functions/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: "jonathan", message })
+      })
+    ]);
+    console.log("✅ Alert inviato a entrambi per " + ticker);
   } catch(e) { console.log("Errore Telegram:", e.message); }
 }
 
@@ -2211,7 +2220,7 @@ function buyFromWatchlist(ticker) {
   if (!w) return;
   document.getElementById("fTicker").value = w.ticker;
   document.getElementById("fName").value = w.name || w.ticker;
-  document.getElementById("fBuyPrice").value = w.price ? w.price.toFixed(2) : "";
+  document.getElementById("fPrice").value = w.price ? w.price.toFixed(2) : "";
   document.getElementById("fCurrency").value = w.currency === "EUR" ? "EUR" : "USD";
   document.getElementById("fSector").value = w.sector || "Altro";
   document.getElementById("modalOverlay").classList.add("show");
