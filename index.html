@@ -2193,15 +2193,15 @@ async function sendTelegramAlert(ticker, price, alertPrice, name) {
   } catch(e) { console.log("Errore Telegram:", e.message); }
 }
 
-function checkWatchlistAlerts() {
-  watchlist.forEach(w => {
-    if (!w.alertPrice || !w.price) return;
+async function checkWatchlistAlerts() {
+  for (const w of watchlist) {
+    if (!w.alertPrice || !w.price) continue;
     if (w.price >= w.alertPrice && !alertedTickers.has(w.ticker)) {
       alertedTickers.add(w.ticker);
-      sendTelegramAlert(w.ticker, w.price, w.alertPrice, w.name);
+      await sendTelegramAlert(w.ticker, w.price, w.alertPrice, w.name);
     }
     if (w.price < w.alertPrice) alertedTickers.delete(w.ticker);
-  });
+  }
 }
 
 function buyFromWatchlist(ticker) {
@@ -2237,7 +2237,8 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
   const ticker = document.getElementById("wTicker").value.trim().toUpperCase();
   const name = document.getElementById("wName").value.trim() || ticker;
   const sector = document.getElementById("wSector").value;
-  const alertPrice = parseFloat(document.getElementById("wAlertPrice").value) || null;
+  const alertPriceRaw = document.getElementById("wAlertPrice").value.replace(",", ".");
+  const alertPrice = parseFloat(alertPriceRaw) || null;
   const notes = document.getElementById("wNotes").value.trim() || "";
   if (!ticker) return;
   const existing = watchlist.find(w => w.ticker === ticker);
