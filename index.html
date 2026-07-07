@@ -671,6 +671,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 
 <script>
 
+
 // ── LOGIN 2 UTENTI ────────────────────────────────────────────────────
 const USERS = {
   fabrizio: { password: "Marinportfoglio2026.", name: "FABRIZIO" },
@@ -2392,6 +2393,7 @@ function stopAutoRefresh() {
 }
 
 
+async function refreshWatchlist() {
   const btn = document.getElementById("btnRefreshWatch");
   if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
   console.log("Watchlist refresh - titoli:", watchlist.length, "user:", currentUser);
@@ -2650,6 +2652,7 @@ document.getElementById("btnLogout").addEventListener("click", () => {
     }
   } catch(e) {}
 })();
+
 
 
 </script>
