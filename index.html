@@ -309,7 +309,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       <button class="btn ghost" id="btnAddWatch" style="padding:5px 12px;font-size:10px;">+ AGGIUNGI</button>
       <button class="btn ghost" id="btnImportWatchExcel" style="padding:5px 12px;font-size:10px;">📊 EXCEL</button>
       <input type="file" id="watchExcelInput" accept=".xlsx,.xls,.csv" style="display:none;">
-      <button class="btn primary" id="btnRefreshWatch" style="padding:6px 16px;font-size:11px;font-weight:700;">↻ AGGIORNA</button>
+      <button class="btn primary" id="btnRefreshWatch" onclick="refreshWatchlist()" style="padding:6px 16px;font-size:11px;font-weight:700;">↻ AGGIORNA</button>
     </div>
     <div id="watchlistWrap"><div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div></div>
   </div>
@@ -2410,6 +2410,7 @@ async function refreshWatchlist() {
   if (btn) { btn.disabled = false; btn.textContent = "↻ AGGIORNA"; }
   checkWatchlistAlerts();
 }
+window.refreshWatchlist = refreshWatchlist;
 
 async function fetchWatchPrice(ticker) {
   try {
