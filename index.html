@@ -983,7 +983,9 @@ async function saveUserSettings() {
       industry: w.industry || null,
       country: w.country || null,
       pe: w.pe || null,
+      peManual: w.peManual || false,
       marketCap: w.marketCap || null,
+      marketCapManual: w.marketCapManual || false,
       fairValueLabel: w.fairValueLabel || null,
       analystUpside: w.analystUpside || null,
       cashFlowLabel: w.cashFlowLabel || null,
@@ -2340,14 +2342,14 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
     if (fairValueLabel) existing.fairValueLabel = fairValueLabel;
     if (analystUpside != null) existing.analystUpside = analystUpside;
     if (cashFlowLabel) existing.cashFlowLabel = cashFlowLabel;
-    if (pe) existing.pe = pe;
-    if (marketCap) existing.marketCap = marketCap;
+    if (pe) { existing.pe = pe; existing.peManual = true; }
+    if (marketCap) { existing.marketCap = marketCap; existing.marketCapManual = true; }
     saveWatchlist();
     renderWatchlist();
     modalWatchOverlay.classList.remove("show");
     return;
   }
-  watchlist.push({ ticker, name, sector, fairValueLabel, analystUpside, cashFlowLabel, pe, marketCap, price: null, high52: null, low52: null, change: null, changePct: null, currency: null, notes, alertPrice, industry: null, country: null });
+  watchlist.push({ ticker, name, sector, fairValueLabel, analystUpside, cashFlowLabel, pe, marketCap, peManual: !!pe, marketCapManual: !!marketCap, price: null, high52: null, low52: null, change: null, changePct: null, currency: null, notes, alertPrice, industry: null, country: null });
   saveWatchlist();
   modalWatchOverlay.classList.remove("show");
   renderWatchlist();
@@ -2588,7 +2590,7 @@ async function fetchWatchPrice(ticker) {
     w.currency = meta.currency;
     if ((!w.name || w.name === w.ticker) && meta.longName) w.name = meta.longName;
 
-    // Fetch PE and Market Cap from quoteSummary
+    // Fetch PE and Market Cap from quoteSummary — solo se non inseriti manualmente
     try {
       const qUrl = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&type=quote`;
       const qRes = await fetch(qUrl);
@@ -2596,8 +2598,8 @@ async function fetchWatchPrice(ticker) {
         const qData = await qRes.json();
         const price = qData?.quoteSummary?.result?.[0]?.price;
         if (price) {
-          if (price.trailingPE?.raw) w.pe = parseFloat(price.trailingPE.raw.toFixed(2));
-          if (price.marketCap?.raw) w.marketCap = parseFloat((price.marketCap.raw / 1e9).toFixed(2));
+          if (!w.peManual && price.trailingPE?.raw) w.pe = parseFloat(price.trailingPE.raw.toFixed(2));
+          if (!w.marketCapManual && price.marketCap?.raw) w.marketCap = parseFloat((price.marketCap.raw / 1e9).toFixed(2));
         }
       }
     } catch(e2) {}
