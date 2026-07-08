@@ -560,6 +560,32 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         <input type="number" id="wAlertPrice" step="any" placeholder="es. 205.00">
       </div>
       <div class="fg" style="grid-column:span 2">
+        <label>Etichetta Fair Value</label>
+        <select id="wFairValueLabel">
+          <option value="">-- Non specificato --</option>
+          <option>Sottovalutato</option>
+          <option>Moderatamente sottovalutato</option>
+          <option>Fair</option>
+          <option>Moderatamente sopravvalutato</option>
+          <option>Sopravvalutato</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Rialzo Target Analisti %</label>
+        <input type="number" id="wAnalystUpside" step="any" placeholder="es. 25.5">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Etichetta Cash Flow</label>
+        <select id="wCashFlowLabel">
+          <option value="">-- Non specificato --</option>
+          <option>Eccellente</option>
+          <option>Ottima</option>
+          <option>Buona</option>
+          <option>Discreta</option>
+          <option>Debole</option>
+        </select>
+      </div>
+      <div class="fg" style="grid-column:span 2">
         <label>Note</label>
         <input type="text" id="wNotes" placeholder="es. Acquistare su pullback, supporto a 195">
       </div>
@@ -599,6 +625,18 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         <div class="fg"><label>Rendimento Dividendi %</label><input type="number" id="fDivYield" step="any" placeholder="4.0" oninput="colorDivYield(this)"></div>
         <div class="fg"><label>Beta</label><input type="number" id="fBeta" step="any" placeholder="0.35" oninput="colorBeta(this)"></div>
         <div class="fg"><label>Fair Value</label><input type="number" id="fFairValue" step="any" placeholder="452.06" oninput="colorFairValue(this)"></div>
+        <div class="fg">
+          <label>Etichetta Fair Value</label>
+          <select id="fFairValueLabel">
+            <option value="">-- Non specificato --</option>
+            <option>Sottovalutato</option>
+            <option>Moderatamente sottovalutato</option>
+            <option>Fair</option>
+            <option>Moderatamente sopravvalutato</option>
+            <option>Sopravvalutato</option>
+          </select>
+        </div>
+        <div class="fg"><label>Rialzo Target Analisti %</label><input type="number" id="fAnalystUpside" step="any" placeholder="es. 25.5"></div>
       </div>
     </div>
 
@@ -670,6 +708,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div><!-- end appContent -->
 
 <script>
+
 
 
 // ── LOGIN 2 UTENTI ────────────────────────────────────────────────────
@@ -937,6 +976,12 @@ async function saveUserSettings() {
       country: w.country || null,
       pe: w.pe || null,
       marketCap: w.marketCap || null,
+      fairValueLabel: w.fairValueLabel || null,
+      analystUpside: w.analystUpside || null,
+      cashFlowLabel: w.cashFlowLabel || null,
+      piotroski: w.piotroski || null,
+      debtEquity: w.debtEquity || null,
+      rsi: w.rsi || null,
       price: w.price || null,
       high52: w.high52 || null,
       low52: w.low52 || null,
@@ -1580,6 +1625,8 @@ function openScheda(ticker) {
   document.getElementById("fDivYield").value = f.divYield ?? '';
   document.getElementById("fBeta").value = f.beta ?? '';
   document.getElementById("fFairValue").value = f.fairValue ?? '';
+  document.getElementById("fFairValueLabel").value = f.fairValueLabel ?? '';
+  document.getElementById("fAnalystUpside").value = f.analystUpside ?? '';
   document.getElementById("fRevenue").value = f.revenue ?? '';
   document.getElementById("fNetIncome").value = f.netIncome ?? '';
   document.getElementById("fEbitda").value = f.ebitda ?? '';
@@ -1713,6 +1760,8 @@ document.getElementById("btnSaveScheda").addEventListener("click", () => {
     divYield: document.getElementById("fDivYield").value || null,
     beta: document.getElementById("fBeta").value || null,
     fairValue: document.getElementById("fFairValue").value || null,
+    fairValueLabel: document.getElementById("fFairValueLabel").value || null,
+    analystUpside: parseFloat(document.getElementById("fAnalystUpside").value) || null,
     revenue: document.getElementById("fRevenue").value || null,
     netIncome: document.getElementById("fNetIncome").value || null,
     ebitda: document.getElementById("fEbitda").value || null,
@@ -1962,6 +2011,18 @@ function renderTable() {
     // Segnale tecnico
     const signalBadge = `<span style="font-size:9px;font-weight:700;color:${sig.color};background:${sig.color}22;padding:2px 7px;border-radius:6px;margin-left:4px;">${sig.label}</span>`;
 
+    // Fair Value badge da scheda
+    const fvColors = { "Sottovalutato": "#00d4b8", "Moderatamente sottovalutato": "#48cae4", "Fair": "#ffd23f", "Moderatamente sopravvalutato": "#ff9f1c", "Sopravvalutato": "#ff6b6b" };
+    let fvBadge = "";
+    if (f.fairValueLabel) {
+      const fvc = fvColors[f.fairValueLabel] || "#7d8aa3";
+      fvBadge = `<span style="font-size:9px;font-weight:700;color:${fvc};background:${fvc}22;padding:2px 6px;border-radius:6px;margin-left:4px;">${f.fairValueLabel}</span>`;
+    }
+    let upsideBadge = "";
+    if (f.analystUpside) {
+      upsideBadge = `<span style="font-size:9px;font-weight:700;color:#4fa3ff;background:#4fa3ff22;padding:2px 6px;border-radius:6px;margin-left:4px;">▲${f.analystUpside}%</span>`;
+    }
+
     h += `<tr>
       <td>
         <a class="tick" href="https://finance.yahoo.com/quote/${p.ticker}" target="_blank">${p.ticker}</a>
@@ -1972,7 +2033,7 @@ function renderTable() {
       </td>
       <td>
         <div>${p.name}</div>
-        <div style="margin-top:3px;">${signalBadge}</div>
+        <div style="margin-top:3px;">${signalBadge}${fvBadge}${upsideBadge}</div>
       </td>
       <td>${p.qty}</td>
       <td>${sym}${p.buyPrice.toFixed(2)}</td>
@@ -2238,6 +2299,9 @@ document.getElementById("btnAddWatch").addEventListener("click", () => {
   document.getElementById("wTicker").value = "";
   document.getElementById("wName").value = "";
   document.getElementById("wAlertPrice").value = "";
+  document.getElementById("wFairValueLabel").value = "";
+  document.getElementById("wAnalystUpside").value = "";
+  document.getElementById("wCashFlowLabel").value = "";
   document.getElementById("wNotes").value = "";
   modalWatchOverlay.classList.add("show");
 });
@@ -2250,20 +2314,26 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
   const sector = document.getElementById("wSector").value;
   const alertPriceRaw = document.getElementById("wAlertPrice").value.replace(",", ".");
   const alertPrice = parseFloat(alertPriceRaw) || null;
+  const fairValueLabel = document.getElementById("wFairValueLabel")?.value || null;
+  const analystUpside = parseFloat(document.getElementById("wAnalystUpside")?.value) || null;
+  const cashFlowLabel = document.getElementById("wCashFlowLabel")?.value || null;
   const notes = document.getElementById("wNotes").value.trim() || "";
   if (!ticker) return;
   const existing = watchlist.find(w => w.ticker === ticker);
   if (existing) {
-    if (!confirm(`${ticker} è già in watchlist. Vuoi aggiornare le note e l'alert?`)) return;
+    if (!confirm(`${ticker} è già in watchlist. Vuoi aggiornare?`)) return;
     existing.notes = notes;
     existing.alertPrice = alertPrice;
     existing.sector = sector;
+    if (fairValueLabel) existing.fairValueLabel = fairValueLabel;
+    if (analystUpside != null) existing.analystUpside = analystUpside;
+    if (cashFlowLabel) existing.cashFlowLabel = cashFlowLabel;
     saveWatchlist();
     renderWatchlist();
     modalWatchOverlay.classList.remove("show");
     return;
   }
-  watchlist.push({ ticker, name, sector, price: null, high52: null, low52: null, change: null, changePct: null, notes, alertPrice, pe: null, marketCap: null, industry: null, country: null });
+  watchlist.push({ ticker, name, sector, fairValueLabel, analystUpside, cashFlowLabel, price: null, high52: null, low52: null, change: null, changePct: null, currency: null, notes, alertPrice, pe: null, marketCap: null, industry: null, country: null });
   saveWatchlist();
   modalWatchOverlay.classList.remove("show");
   renderWatchlist();
@@ -2293,15 +2363,49 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         const wb = XLSX.read(ev.target.result, { type: "binary" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        // Detect Finviz format: Ticker, Company, Sector, Industry, Country, Market Cap (B), P/E
-        const headers = data[0] ? data[0].map(h => String(h || "").toLowerCase()) : [];
+        // Detect format type
+        
+        // Find header row (could be at row 0 or deeper like row 7 in the new format)
+        let headerRowIdx = 0;
+        let headerRow = [];
+        for (let i = 0; i < Math.min(data.length, 15); i++) {
+          const row = data[i] || [];
+          const rowStr = row.map(c => String(c||"").toLowerCase()).join(",");
+          if (rowStr.includes("ticker") || rowStr.includes("nome")) {
+            headerRowIdx = i;
+            headerRow = row;
+            break;
+          }
+        }
+        
+        const headers = headerRow.map(h => String(h||"").toLowerCase());
+        const iIdx = (name) => headers.findIndex(h => h.includes(name));
+        
+        // Column indices
+        const colNome = iIdx("nome") !== -1 ? iIdx("nome") : 2;
+        const colTicker = iIdx("ticker") !== -1 ? iIdx("ticker") : 3;
+        const colFairLabel = iIdx("fair value") !== -1 ? iIdx("fair value") : -1;
+        const colAnalystRialzo = iIdx("rialzo") !== -1 ? iIdx("rialzo") : -1;
+        const colCashLabel = iIdx("flusso di cassa") !== -1 ? iIdx("flusso di cassa") : -1;
+        const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : iIdx("p/e");
+        const colMktCap = iIdx("capitaliz") !== -1 ? iIdx("capitaliz") : iIdx("market cap");
+        const colPiotroski = iIdx("piotroski") !== -1 ? iIdx("piotroski") : -1;
+        const colDebtEq = iIdx("debito / equity") !== -1 ? iIdx("debito / equity") : -1;
+        const colRSI = iIdx("forza relativa") !== -1 ? iIdx("forza relativa") : -1;
+        
+        // Finviz format detection
         const isFinviz = headers.includes("company") || headers.includes("market cap (b)");
-        data.slice(1).forEach(row => {
-          if (!row[0]) return;
+        
+        data.slice(headerRowIdx + 2).forEach(row => {
+          if (!row) return;
+          const ticker = row[colTicker];
+          if (!ticker || String(ticker).trim() === "") return;
+          const tickerStr = String(ticker).trim().toUpperCase();
+          
           if (isFinviz) {
             rows.push({
-              ticker: String(row[0]).toUpperCase(),
-              name: row[1] || row[0],
+              ticker: tickerStr,
+              name: row[1] || tickerStr,
               sector: row[2] || "Altro",
               industry: row[3] || null,
               country: row[4] || null,
@@ -2309,7 +2413,22 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
               pe: row[6] ? parseFloat(row[6]) : null
             });
           } else {
-            rows.push({ ticker: String(row[0]).toUpperCase(), name: row[1] || row[0], sector: row[2] || "Altro" });
+            // New format with fair value labels etc.
+            const analystRialzo = colAnalystRialzo !== -1 && row[colAnalystRialzo] != null 
+              ? parseFloat((row[colAnalystRialzo] * 100).toFixed(1)) : null;
+            rows.push({
+              ticker: tickerStr,
+              name: row[colNome] || tickerStr,
+              sector: "Altro",
+              fairValueLabel: colFairLabel !== -1 ? row[colFairLabel] || null : null,
+              analystUpside: analystRialzo,
+              cashFlowLabel: colCashLabel !== -1 ? row[colCashLabel] || null : null,
+              pe: colPE !== -1 && row[colPE] != null ? parseFloat(row[colPE].toFixed(1)) : null,
+              marketCap: colMktCap !== -1 && row[colMktCap] != null ? parseFloat((row[colMktCap]/1e9).toFixed(2)) : null,
+              piotroski: colPiotroski !== -1 ? row[colPiotroski] || null : null,
+              debtEquity: colDebtEq !== -1 && row[colDebtEq] != null ? parseFloat(row[colDebtEq].toFixed(2)) : null,
+              rsi: colRSI !== -1 && row[colRSI] != null ? parseFloat(row[colRSI].toFixed(1)) : null,
+            });
           }
         });
       }
@@ -2324,6 +2443,12 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
             existing.country = r.country || existing.country;
             existing.pe = r.pe || existing.pe;
             existing.marketCap = r.marketCap || existing.marketCap;
+            if (r.fairValueLabel) existing.fairValueLabel = r.fairValueLabel;
+            if (r.analystUpside != null) existing.analystUpside = r.analystUpside;
+            if (r.cashFlowLabel) existing.cashFlowLabel = r.cashFlowLabel;
+            if (r.piotroski != null) existing.piotroski = r.piotroski;
+            if (r.debtEquity != null) existing.debtEquity = r.debtEquity;
+            if (r.rsi != null) existing.rsi = r.rsi;
             updated++;
           } else {
             skipped++;
@@ -2337,6 +2462,12 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
             country: r.country || null,
             pe: r.pe || null,
             marketCap: r.marketCap || null,
+            fairValueLabel: r.fairValueLabel || null,
+            analystUpside: r.analystUpside || null,
+            cashFlowLabel: r.cashFlowLabel || null,
+            piotroski: r.piotroski || null,
+            debtEquity: r.debtEquity || null,
+            rsi: r.rsi || null,
             price: null,
             high52: null,
             low52: null,
@@ -2477,6 +2608,9 @@ function editWatch(ticker) {
   document.getElementById("wName").value = w.name || "";
   document.getElementById("wSector").value = w.sector || "Altro";
   document.getElementById("wAlertPrice").value = w.alertPrice || "";
+  document.getElementById("wFairValueLabel").value = w.fairValueLabel || "";
+  document.getElementById("wAnalystUpside").value = w.analystUpside || "";
+  document.getElementById("wCashFlowLabel").value = w.cashFlowLabel || "";
   document.getElementById("wNotes").value = w.notes || "";
   modalWatchOverlay.classList.add("show");
 }
@@ -2489,15 +2623,17 @@ function renderWatchlist() {
     wrap.innerHTML = `<div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>`;
     return;
   }
-  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;">
+  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">
     <tr style="border-bottom:1px solid var(--line);">
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">TICKER</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VAR%</th>
-      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W MIN/MAX</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">FAIR VALUE</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RIALZO</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">CASH FLOW</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P/E</th>
-      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">MKT CAP</th>
-      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE / ALERT</th>
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE</th>
       <th style="padding:4px;"></th>
     </tr>`;
 
@@ -2506,48 +2642,66 @@ function renderWatchlist() {
     const chg = w.changePct;
     const chgColor = chg == null ? "var(--dim)" : chg >= 0 ? "#00d4b8" : "#ff6b6b";
 
-    // BUY ALERT logic
+    // BUY ALERT badge
     let alertBadge = "";
-    if (w.alertPrice && w.price != null) {
-      if (w.price >= w.alertPrice) {
-        alertBadge = `<span style="display:inline-block;background:#00d4b822;color:#00d4b8;border:1px solid #00d4b8;font-size:9px;font-weight:700;padding:2px 8px;border-radius:6px;letter-spacing:1px;animation:pulse 1.5s infinite;">🟢 BUY ALERT</span>`;
-      }
+    if (w.alertPrice && w.price != null && w.price >= w.alertPrice) {
+      alertBadge = `<span style="display:inline-block;background:#00d4b822;color:#00d4b8;border:1px solid #00d4b8;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🟢 BUY</span>`;
     }
 
-    const noteText = w.notes ? `<div style="font-size:10px;color:var(--dim);margin-top:3px;">${w.notes}</div>` : "";
-    const alertText = w.alertPrice ? `<div style="font-size:10px;color:#ffd23f;margin-top:2px;">Alert: ${sym}${w.alertPrice}</div>` : "";
+    // Fair Value badge
+    const fvColors = {
+      "Sottovalutato": "#00d4b8", "Fair": "#ffd23f", "Sopravvalutato": "#ff6b6b",
+      "Moderatamente sottovalutato": "#48cae4", "Moderatamente sopravvalutato": "#ff9f1c"
+    };
+    const fvColor = w.fairValueLabel ? (fvColors[w.fairValueLabel] || "#7d8aa3") : null;
+    const fvBadge = w.fairValueLabel 
+      ? `<span style="font-size:9px;font-weight:700;color:${fvColor};background:${fvColor}22;padding:2px 7px;border-radius:6px;white-space:nowrap;">${w.fairValueLabel}</span>`
+      : "--";
+
+    // Cash Flow badge
+    const cfColors = { "Eccellente": "#00d4b8", "Ottima": "#00d4b8", "Buona": "#4fa3ff", "Discreta": "#ffd23f", "Debole": "#ff6b6b" };
+    const cfColor = w.cashFlowLabel ? (cfColors[w.cashFlowLabel] || "#7d8aa3") : null;
+    const cfBadge = w.cashFlowLabel
+      ? `<span style="font-size:9px;font-weight:700;color:${cfColor};background:${cfColor}22;padding:2px 7px;border-radius:6px;">${w.cashFlowLabel}</span>`
+      : "--";
+
+    // Analyst upside
+    const upsideTxt = w.analystUpside != null
+      ? `<span style="color:${w.analystUpside > 0 ? '#00d4b8' : '#ff6b6b'};font-weight:700;">+${w.analystUpside}%</span>`
+      : "--";
+
+    const noteText = w.notes ? `<div style="font-size:10px;color:var(--dim);">${w.notes}</div>` : "";
+    const alertText = w.alertPrice ? `<div style="font-size:10px;color:#ffd23f;">Alert: ${sym}${w.alertPrice}</div>` : "";
 
     h += `<tr style="border-top:1px solid #1a2030;">
       <td style="padding:9px 8px;">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
           <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
-          <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;">📈</a>
+          <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" style="font-size:11px;text-decoration:none;">📈</a>
           ${alertBadge}
         </div>
         <div style="font-size:10px;color:var(--dim);margin-top:2px;">${w.name}</div>
-        <div style="font-size:10px;color:var(--dim);">${w.industry || ""} ${w.country ? "· " + w.country : ""}</div>
+        <div style="font-size:10px;color:var(--dim);">${w.industry||""} ${w.country ? "· "+w.country : ""}</div>
       </td>
       <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;">
-        ${w.price != null ? sym + w.price.toFixed(2) : "--"}
+        ${w.price != null ? sym+w.price.toFixed(2) : "--"}
       </td>
       <td style="text-align:right;padding:9px 8px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${chgColor};">
-        ${chg != null ? (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%" : "--"}
+        ${chg != null ? (chg>=0?"+":"")+chg.toFixed(2)+"%" : "--"}
       </td>
       <td style="text-align:right;padding:9px 8px;font-size:10px;color:var(--dim);">
-        ${w.low52 != null ? sym + w.low52.toFixed(2) + " / " + sym + w.high52.toFixed(2) : "--"}
+        ${w.low52 != null ? sym+w.low52.toFixed(2)+" / "+sym+w.high52.toFixed(2) : "--"}
       </td>
+      <td style="text-align:center;padding:9px 8px;">${fvBadge}</td>
+      <td style="text-align:right;padding:9px 8px;">${upsideTxt}</td>
+      <td style="text-align:center;padding:9px 8px;">${cfBadge}</td>
       <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
-        ${w.pe != null ? w.pe.toFixed(1) + "x" : "--"}
+        ${w.pe != null ? w.pe+"x" : "--"}
       </td>
-      <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
-        ${w.marketCap != null ? "$" + w.marketCap.toFixed(1) + "B" : "--"}
-      </td>
-      <td style="padding:9px 8px;">
-        ${noteText}${alertText}
-      </td>
+      <td style="padding:9px 8px;">${noteText}${alertText}</td>
       <td style="padding:9px 4px;white-space:nowrap;">
-        <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica note/alert" style="color:var(--blue);">✎</button>
-        <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;letter-spacing:0.5px;">BUY</button>
+        <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica" style="color:var(--blue);">✎</button>
+        <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">BUY</button>
         <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
       </td>
     </tr>`;
@@ -2670,6 +2824,7 @@ document.getElementById("btnLogout").addEventListener("click", () => {
     }
   } catch(e) {}
 })();
+
 
 
 
