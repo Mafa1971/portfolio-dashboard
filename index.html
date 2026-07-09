@@ -2020,8 +2020,8 @@ function renderTable() {
     const f = fundamentals[p.ticker] || {};
     const sig = p.signal || { label: "--", color: "var(--muted)" };
 
-    // Variazione giornaliera — solo da dati salvati dopo refresh
-    const dayChangePct = p.dayChangePct || null;
+    // Variazione giornaliera — solo da Supabase dopo refresh prezzi
+    const dayChangePct = (typeof p.dayChangePct === 'number' && isFinite(p.dayChangePct) && Math.abs(p.dayChangePct) < 100) ? p.dayChangePct : null;
     const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
     // Badge rating da CSV
