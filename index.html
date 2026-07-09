@@ -2433,7 +2433,8 @@ document.getElementById("watchRestoreInput").addEventListener("change", (e) => {
           if (w.pe) { existing.pe = w.pe; existing.peManual = w.peManual; }
           if (w.marketCap) { existing.marketCap = w.marketCap; existing.marketCapManual = w.marketCapManual; }
           if (w.notes) existing.notes = w.notes;
-          if (w.alertPrice) existing.alertPrice = w.alertPrice;
+          if (w.alertPrice != null) existing.alertPrice = w.alertPrice;
+          if (w.alertSupport != null) existing.alertSupport = w.alertSupport;
           updated++;
         } else {
           watchlist.push(w);
