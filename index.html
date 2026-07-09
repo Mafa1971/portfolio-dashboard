@@ -1844,6 +1844,7 @@ async function fetchYahooData(ticker) {
 
   return {
     price: meta.regularMarketPrice,
+    prevClose: meta.chartPreviousClose || meta.regularMarketPreviousClose || null,
     currency: meta.currency,
     dayHigh: meta.regularMarketDayHigh,
     dayLow: meta.regularMarketDayLow,
@@ -1881,6 +1882,8 @@ async function refreshAllPrices() {
       positions[i].dayLow = data.dayLow;
       positions[i].yearHigh = data.yearHigh;
       positions[i].yearLow = data.yearLow;
+      positions[i].prevClose = data.prevClose;
+      positions[i].dayChangePct = data.prevClose ? ((data.price - data.prevClose) / data.prevClose * 100) : null;
       positions[i].sma21 = data.sma21;
       positions[i].sma100 = data.sma100;
       positions[i].sma200 = data.sma200;
@@ -1998,7 +2001,7 @@ function renderTable() {
   }
 
   let h = `<table><tr>
-    <th>Ticker</th><th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>P&amp;L %</th><th>P&amp;L Val.</th><th>Peso</th><th></th>
+    <th>Ticker</th><th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>Var%</th><th>Val.Att.</th><th>P&amp;L %</th><th>P&amp;L Val.</th><th>Peso</th><th></th>
   </tr>`;
 
   const stats = calcPortfolioStats();
@@ -2012,6 +2015,12 @@ function renderTable() {
     const sym = p.currency === "USD" ? "$" : "€";
     const f = fundamentals[p.ticker] || {};
     const sig = p.signal || { label: "--", color: "var(--muted)" };
+
+    // Variazione giornaliera
+    const dayChange = p.dayHigh && p.dayLow && p.currentPrice ? 
+      ((p.currentPrice - (p.prevClose || p.buyPrice)) / (p.prevClose || p.buyPrice) * 100) : null;
+    const dayChangePct = p.dayChangePct || null;
+    const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
     // Badge rating da CSV
     let ratingBadge = "";
@@ -2064,6 +2073,12 @@ function renderTable() {
       <td>${sym}${p.buyPrice.toFixed(2)}</td>
       <td style="color:var(--dim);font-family:'JetBrains Mono',monospace;">${sym}${(p.buyPrice*p.qty).toLocaleString("it-IT",{maximumFractionDigits:0})}</td>
       <td>${sym}${price.toFixed(2)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${dayColor};">
+        ${dayChangePct != null ? (dayChangePct>=0?"+":"")+dayChangePct.toFixed(2)+"%" : "--"}
+      </td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${value > p.buyPrice*p.qty ? '#00d4b8':'#ff6b6b'}">
+        ${sym}${value.toLocaleString("it-IT",{maximumFractionDigits:0})}
+      </td>
       <td><span class="chip ${pl>=0?'up':'down'}">${pl>=0?'+':''}${pl.toFixed(1)}%</span></td>
       <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${plAbs>=0?'#00d4b8':'#ff6b6b'}">${plAbs>=0?'+':''}${sym}${Math.abs(plAbs).toFixed(0)}</td>
       <td>${weight.toFixed(1)}%</td>
@@ -2403,7 +2418,30 @@ document.getElementById("btnImportWatchExcel").addEventListener("click", () => {
 
 // ── WATCHLIST BACKUP / RESTORE ────────────────────────────────────────
 document.getElementById("btnBackupWatch").addEventListener("click", () => {
-  const data = JSON.stringify({ watchlist, exportedAt: new Date().toISOString(), user: currentUser }, null, 2);
+  const cleanBackup = watchlist.map(w => ({
+    ticker: w.ticker,
+    name: w.name || w.ticker,
+    sector: w.sector || "Altro",
+    industry: w.industry || null,
+    country: w.country || null,
+    pe: w.pe || null,
+    peManual: w.peManual || false,
+    marketCap: w.marketCap || null,
+    marketCapManual: w.marketCapManual || false,
+    fairValueLabel: w.fairValueLabel || null,
+    analystUpside: w.analystUpside || null,
+    cashFlowLabel: w.cashFlowLabel || null,
+    piotroski: w.piotroski || null,
+    price: w.price || null,
+    high52: w.high52 || null,
+    low52: w.low52 || null,
+    changePct: w.changePct || null,
+    currency: w.currency || null,
+    notes: w.notes || "",
+    alertPrice: w.alertPrice || null,
+    alertSupport: w.alertSupport || null
+  }));
+  const data = JSON.stringify({ watchlist: cleanBackup, exportedAt: new Date().toISOString(), user: currentUser }, null, 2);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
   a.download = `watchlist_backup_${currentUser}_${new Date().toISOString().slice(0,10)}.json`;
