@@ -895,7 +895,9 @@ async function loadAllData() {
       sector: r.sector, region: r.region, currentPrice: r.current_price,
       ath: r.ath, isManual: r.is_manual, lastFetch: r.last_fetch,
       signal: r.signal_label ? { label: r.signal_label, color: r.signal_color } : null,
-      sma21: r.sma21, sma100: r.sma100, sma200: r.sma200, rsi: r.rsi
+      sma21: r.sma21, sma100: r.sma100, sma200: r.sma200, rsi: r.rsi,
+      prevClose: r.prev_close || null,
+      dayChangePct: r.day_change_pct || null
     }));
 
     closedLots = closedData.map(r => ({
@@ -927,7 +929,9 @@ async function savePositions(pos) {
       signal_label: p.signal ? p.signal.label : null,
       signal_color: p.signal ? p.signal.color : null,
       sma21: p.sma21 || null, sma100: p.sma100 || null,
-      sma200: p.sma200 || null, rsi: p.rsi || null
+      sma200: p.sma200 || null, rsi: p.rsi || null,
+      prev_close: p.prevClose || null,
+      day_change_pct: p.dayChangePct || null
     }));
     if (rows.length > 0) {
       await sbFetch("positions?on_conflict=id", "POST", rows);
@@ -2016,9 +2020,7 @@ function renderTable() {
     const f = fundamentals[p.ticker] || {};
     const sig = p.signal || { label: "--", color: "var(--muted)" };
 
-    // Variazione giornaliera
-    const dayChange = p.dayHigh && p.dayLow && p.currentPrice ? 
-      ((p.currentPrice - (p.prevClose || p.buyPrice)) / (p.prevClose || p.buyPrice) * 100) : null;
+    // Variazione giornaliera — solo da dati salvati dopo refresh
     const dayChangePct = p.dayChangePct || null;
     const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
