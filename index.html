@@ -1846,9 +1846,21 @@ async function fetchYahooData(ticker) {
   const rsi = calcRSI(closes, 14);
   const signal = getSignal(meta.regularMarketPrice, sma21, sma100, sma200, rsi);
 
+  // Fetch separato con range=1d per avere il prevClose corretto
+  let prevClose = null;
+  try {
+    const url1d = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1d&interval=1d`;
+    const res1d = await fetch(url1d);
+    if (res1d.ok) {
+      const data1d = await res1d.json();
+      const meta1d = data1d?.chart?.result?.[0]?.meta;
+      if (meta1d?.chartPreviousClose) prevClose = meta1d.chartPreviousClose;
+    }
+  } catch(e) {}
+
   return {
     price: meta.regularMarketPrice,
-    prevClose: meta.chartPreviousClose || meta.regularMarketPreviousClose || null,
+    prevClose,
     currency: meta.currency,
     dayHigh: meta.regularMarketDayHigh,
     dayLow: meta.regularMarketDayLow,
