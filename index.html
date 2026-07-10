@@ -360,36 +360,27 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
   <div class="panel">
     <div class="panel-title">PERFORMANCE SETTORI</div>
-    <div id="tvSectorWidget" style="height:500px;">
+    <div style="height:500px;">
       <div class="tradingview-widget-container" style="height:100%;">
-        <div class="tradingview-widget-container__widget" style="height:100%;"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+        <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);"></div>
+        <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
         {
-          "colorTheme": "dark",
-          "dateRange": "1D",
-          "showChart": true,
-          "isTransparent": true,
-          "width": "100%",
-          "height": "100%",
+          "exchanges": [],
+          "dataSource": "SPX500",
+          "grouping": "sector",
+          "blockSize": "market_cap_basic",
+          "blockColor": "change",
           "locale": "it",
-          "tabs": [
-            {
-              "title": "Settori USA",
-              "symbols": [
-                {"s": "AMEX:XLK", "d": "Tecnologia"},
-                {"s": "AMEX:XLV", "d": "Salute"},
-                {"s": "AMEX:XLF", "d": "Finanziario"},
-                {"s": "AMEX:XLE", "d": "Energia"},
-                {"s": "AMEX:XLI", "d": "Industriali"},
-                {"s": "AMEX:XLP", "d": "Consumer Staples"},
-                {"s": "AMEX:XLY", "d": "Consumer Discr."},
-                {"s": "AMEX:XLU", "d": "Utilities"},
-                {"s": "AMEX:XLB", "d": "Materiali"},
-                {"s": "AMEX:XLRE", "d": "Immobiliare"},
-                {"s": "AMEX:XLC", "d": "Comunicazioni"}
-              ]
-            }
-          ]
+          "symbolUrl": "",
+          "colorTheme": "dark",
+          "hasTopBar": true,
+          "isDataSetEnabled": false,
+          "isZoomEnabled": true,
+          "hasSymbolTooltip": true,
+          "isMonoSize": false,
+          "width": "100%",
+          "height": "100%"
         }
         </script>
       </div>
