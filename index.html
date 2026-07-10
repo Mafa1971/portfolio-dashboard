@@ -358,33 +358,22 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       </div>
     </div>
   </div>
-  <div class="panel">
-    <div class="panel-title">PERFORMANCE SETTORI</div>
-    <div style="height:500px;">
-      <div class="tradingview-widget-container" style="height:100%;">
-        <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);"></div>
-        <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-stock-heatmap.js" async>
-        {
-          "exchanges": [],
-          "dataSource": "SPX500",
-          "grouping": "sector",
-          "blockSize": "market_cap_basic",
-          "blockColor": "change",
-          "locale": "it",
-          "symbolUrl": "",
-          "colorTheme": "dark",
-          "hasTopBar": true,
-          "isDataSetEnabled": false,
-          "isZoomEnabled": true,
-          "hasSymbolTooltip": true,
-          "isMonoSize": false,
-          "width": "100%",
-          "height": "100%"
-        }
-        </script>
-      </div>
+  <div class="panel" style="background:#fff;border-radius:12px;">
+    <div class="panel-title" style="color:#1a2030;">PERFORMANCE SETTORI — ANDAMENTO GIORNALIERO
+      <select id="sectorPeriod" onchange="loadSectorChart()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
+        <option value="1d">Oggi</option>
+        <option value="5d">5 Giorni</option>
+        <option value="1mo">1 Mese</option>
+        <option value="3mo">3 Mesi</option>
+        <option value="1y">1 Anno</option>
+      </select>
+      <button onclick="loadSectorChart()" style="background:#1a2030;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
     </div>
+    <div id="sectorChartStatus" style="font-size:11px;color:#666;padding:8px 0;"></div>
+    <div style="height:420px;background:#fff;border-radius:8px;">
+      <canvas id="chartSectors"></canvas>
+    </div>
+    <div id="sectorLegend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding:8px 0;"></div>
   </div>
 </div>
 
@@ -1294,6 +1283,9 @@ function switchTab(name) {
   if (name === "Portfolio") {
     setTimeout(() => { renderCharts(); renderCapitalChart(); }, 50);
   }
+  if (name === "Mercati") {
+    setTimeout(() => loadSectorChart(), 300);
+  }
 }
 window.switchTab = switchTab;
 
@@ -1582,6 +1574,103 @@ document.getElementById("btnConfirmClose").addEventListener("click", () => {
   modalCloseOverlay.classList.remove("show");
   renderAll();
 });
+
+// ── SECTOR CHART ──────────────────────────────────────────────────────
+const SECTORS = [
+  { ticker: "XLK",  name: "Tecnologia",       color: "#6e5cff" },
+  { ticker: "XLV",  name: "Salute",            color: "#00d4b8" },
+  { ticker: "XLF",  name: "Finanziario",       color: "#ffd23f" },
+  { ticker: "XLE",  name: "Energia",           color: "#ff9f1c" },
+  { ticker: "XLI",  name: "Industriali",       color: "#4fa3ff" },
+  { ticker: "XLP",  name: "Consumer Staples",  color: "#f72585" },
+  { ticker: "XLY",  name: "Consumer Discr.",   color: "#48cae4" },
+  { ticker: "XLU",  name: "Utilities",         color: "#80ed99" },
+  { ticker: "XLB",  name: "Materiali",         color: "#c77dff" },
+  { ticker: "XLRE", name: "Immobiliare",       color: "#ff6b6b" },
+  { ticker: "XLC",  name: "Comunicazioni",     color: "#ff7700" }
+];
+
+let chartSectors = null;
+
+async function loadSectorChart() {
+  const status = document.getElementById("sectorChartStatus");
+  const period = document.getElementById("sectorPeriod")?.value || "1d";
+  const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
+  if (status) status.textContent = "⏳ Caricamento dati settori...";
+
+  const datasets = [];
+  const labels = [];
+  let labelsSet = false;
+
+  for (const sector of SECTORS) {
+    try {
+      const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(sector.ticker)}&range=${period}&interval=${interval}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const result = data?.chart?.result?.[0];
+      if (!result) continue;
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators?.quote?.[0]?.close || [];
+      if (!labelsSet && timestamps.length > 0) {
+        timestamps.forEach(ts => {
+          const d = new Date(ts * 1000);
+          if (period === "1d") labels.push(d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }));
+          else if (period === "5d") labels.push(d.toLocaleDateString("it-IT", { weekday: "short", hour: "2-digit", minute: "2-digit" }));
+          else labels.push(d.toLocaleDateString("it-IT", { month: "short", day: "numeric" }));
+        });
+        labelsSet = true;
+      }
+      const firstClose = closes.find(v => v != null);
+      if (!firstClose) continue;
+      const normalized = closes.map(v => v != null ? parseFloat(((v - firstClose) / firstClose * 100).toFixed(3)) : null);
+      datasets.push({
+        label: sector.name,
+        data: normalized,
+        borderColor: sector.color,
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.3,
+        spanGaps: true
+      });
+    } catch(e) { console.log("Sector skip:", sector.ticker); }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  if (status) status.textContent = "";
+  const ctx = document.getElementById("chartSectors");
+  if (!ctx) return;
+  if (chartSectors) chartSectors.destroy();
+  chartSectors = new Chart(ctx.getContext("2d"), {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: "index", intersect: false,
+          callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y != null ? (c.parsed.y >= 0 ? "+" : "") + c.parsed.y.toFixed(2) + "%" : "--"}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#666", font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: "#eee" } },
+        y: { ticks: { color: "#666", font: { size: 10 }, callback: v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%" }, grid: { color: "#eee" } }
+      },
+      interaction: { mode: "index", intersect: false }
+    }
+  });
+  const legend = document.getElementById("sectorLegend");
+  if (legend) {
+    legend.innerHTML = SECTORS.map(s =>
+      `<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#444;">
+        <div style="width:16px;height:3px;background:${s.color};border-radius:2px;"></div>
+        <span>${s.name}</span>
+      </div>`
+    ).join("");
+  }
+}
+window.loadSectorChart = loadSectorChart;
 
 // ── REBALANCE TARGETS ───────────────────────────────────────────────
 const modalTargetsOverlay = document.getElementById("modalTargetsOverlay");
