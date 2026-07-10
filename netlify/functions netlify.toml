@@ -1,0 +1,4 @@
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.tradingview.com https://*.tradingview-widget.com https://s3.tradingview.com wss://*.tradingview.com data: blob:;"
