@@ -479,6 +479,31 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
 </div>
 
+<!-- MODAL TARGET / STOP LOSS -->
+<div class="modal-overlay" id="modalTargetOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h3 id="targetModalTitle">Target &amp; Stop Loss</h3>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:span 2">
+        <label>🎯 Target (alert quando prezzo ≥ questo valore)</label>
+        <input type="number" id="tTarget" step="any" placeholder="es. 65.00">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>🛑 Stop Loss (alert quando prezzo ≤ questo valore)</label>
+        <input type="number" id="tStopLoss" step="any" placeholder="es. 45.00">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>Note</label>
+        <input type="text" id="tNotes" placeholder="es. Resistenza a 65, stop sotto supporto">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost" id="btnCancelTarget">Annulla</button>
+      <button class="btn primary" id="btnSaveTarget">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL EDIT POSITION -->
 <div class="modal-overlay" id="modalEditOverlay">
   <div class="modal">
@@ -941,7 +966,10 @@ async function loadAllData() {
       signal: r.signal_label ? { label: r.signal_label, color: r.signal_color } : null,
       sma21: r.sma21, sma100: r.sma100, sma200: r.sma200, rsi: r.rsi,
       prevClose: r.prev_close || null,
-      dayChangePct: r.day_change_pct || null
+      dayChangePct: r.day_change_pct || null,
+      target: r.target || null,
+      stopLoss: r.stop_loss || null,
+      alertNotes: r.alert_notes || null
     }));
 
     closedLots = closedData.map(r => ({
@@ -975,7 +1003,10 @@ async function savePositions(pos) {
       sma21: p.sma21 || null, sma100: p.sma100 || null,
       sma200: p.sma200 || null, rsi: p.rsi || null,
       prev_close: p.prevClose || null,
-      day_change_pct: p.dayChangePct || null
+      day_change_pct: p.dayChangePct || null,
+      target: p.target || null,
+      stop_loss: p.stopLoss || null,
+      alert_notes: p.alertNotes || null
     }));
     if (rows.length > 0) {
       await sbFetch("positions?on_conflict=id", "POST", rows);
@@ -1386,6 +1417,90 @@ window.updateTickerSuffix = updateTickerSuffix;
 // ── EDIT POSITION MODAL ───────────────────────────────────────────────
 const modalEditOverlay = document.getElementById("modalEditOverlay");
 let editingPositionId = null;
+
+// ── TARGET / STOP LOSS MODAL ──────────────────────────────────────────
+const modalTargetOverlay = document.getElementById("modalTargetOverlay");
+let targetPositionId = null;
+const positionAlerts = new Set(); // traccia alert già inviati
+
+function openTargetModal(id) {
+  const p = positions.find(x => x.id === id);
+  if (!p) return;
+  targetPositionId = id;
+  document.getElementById("targetModalTitle").textContent = `🎯 Target & Stop Loss — ${p.ticker}`;
+  document.getElementById("tTarget").value = p.target || "";
+  document.getElementById("tStopLoss").value = p.stopLoss || "";
+  document.getElementById("tNotes").value = p.alertNotes || "";
+  modalTargetOverlay.classList.add("show");
+}
+window.openTargetModal = openTargetModal;
+
+document.getElementById("btnCancelTarget").addEventListener("click", () => {
+  modalTargetOverlay.classList.remove("show");
+});
+modalTargetOverlay.addEventListener("click", e => {
+  if (e.target === modalTargetOverlay) modalTargetOverlay.classList.remove("show");
+});
+
+document.getElementById("btnSaveTarget").addEventListener("click", async () => {
+  const p = positions.find(x => x.id === targetPositionId);
+  if (!p) return;
+  const targetRaw = document.getElementById("tTarget").value.replace(",", ".");
+  const stopRaw = document.getElementById("tStopLoss").value.replace(",", ".");
+  p.target = parseFloat(targetRaw) || null;
+  p.stopLoss = parseFloat(stopRaw) || null;
+  p.alertNotes = document.getElementById("tNotes").value.trim() || "";
+  // Reset alerts quando si modificano i valori
+  positionAlerts.delete(p.ticker + "_target");
+  positionAlerts.delete(p.ticker + "_stop");
+  await savePositions(positions);
+  modalTargetOverlay.classList.remove("show");
+  renderTable();
+  alert(`✓ Target e Stop Loss salvati per ${p.ticker}`);
+});
+
+// Check position alerts after price update
+async function checkPositionAlerts() {
+  for (const p of positions) {
+    const price = p.currentPrice || p.buyPrice;
+    const sym = p.currency === "USD" ? "$" : "€";
+
+    // TARGET alert
+    if (p.target && price >= p.target && !positionAlerts.has(p.ticker + "_target")) {
+      positionAlerts.add(p.ticker + "_target");
+      const msg = `🎯 <b>TARGET RAGGIUNTO — ${p.ticker}</b>\n\n` +
+        `📈 <b>${p.name}</b>\n` +
+        `💰 Prezzo: <b>${sym}${price.toFixed(2)}</b>\n` +
+        `🎯 Target: <b>${sym}${p.target.toFixed(2)}</b>\n` +
+        `👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\n` +
+        `${p.alertNotes ? "📝 " + p.alertNotes : "Considera di prendere profitto!"}`;
+      await Promise.all([
+        fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "fabrizio", message: msg }) }),
+        fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "jonathan", message: msg }) })
+      ]);
+    }
+    if (p.target && price < p.target) positionAlerts.delete(p.ticker + "_target");
+
+    // STOP LOSS alert
+    if (p.stopLoss && price <= p.stopLoss && !positionAlerts.has(p.ticker + "_stop")) {
+      positionAlerts.add(p.ticker + "_stop");
+      const msg = `🛑 <b>STOP LOSS — ${p.ticker}</b>\n\n` +
+        `📉 <b>${p.name}</b>\n` +
+        `💰 Prezzo: <b>${sym}${price.toFixed(2)}</b>\n` +
+        `🛑 Stop Loss: <b>${sym}${p.stopLoss.toFixed(2)}</b>\n` +
+        `👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\n` +
+        `${p.alertNotes ? "📝 " + p.alertNotes : "ATTENZIONE: il prezzo ha raggiunto lo stop loss!"}`;
+      await Promise.all([
+        fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "fabrizio", message: msg }) }),
+        fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "jonathan", message: msg }) })
+      ]);
+    }
+    if (p.stopLoss && price > p.stopLoss) positionAlerts.delete(p.ticker + "_stop");
+  }
+}
+window.checkPositionAlerts = checkPositionAlerts;
+
+
 
 function openEditPosition(id) {
   const p = positions.find(x => x.id === id);
@@ -2077,6 +2192,7 @@ async function refreshAllPrices() {
   saveFundamentals();
   buildHistoricalCapital();
   snapshotCapital();
+  await checkPositionAlerts();
   btn.disabled = false;
   btn.textContent = "↻ AGGIORNA PREZZI";
   document.getElementById("lastUpdate").textContent = "AGGIORNATO " + new Date().toLocaleTimeString("it-IT", {hour:"2-digit", minute:"2-digit"});
@@ -2180,6 +2296,19 @@ function renderTable() {
     const dayChangePct = (typeof p.dayChangePct === 'number' && isFinite(p.dayChangePct) && Math.abs(p.dayChangePct) < 25) ? p.dayChangePct : null;
     const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
+    // Target / Stop Loss badges
+    let targetBadge = "", stopBadge = "";
+    if (p.target) {
+      const hit = price >= p.target;
+      const col = hit ? "#00d4b8" : "#7d8aa3";
+      targetBadge = `<span style="font-size:9px;font-weight:700;color:${col};background:${col}22;padding:2px 6px;border-radius:6px;margin-left:3px;${hit ? "animation:pulse 1.5s infinite;" : ""}">🎯${hit ? " HIT!" : " " + sym + p.target.toFixed(2)}</span>`;
+    }
+    if (p.stopLoss) {
+      const hit = price <= p.stopLoss;
+      const col = hit ? "#ff6b6b" : "#7d8aa3";
+      stopBadge = `<span style="font-size:9px;font-weight:700;color:${col};background:${col}22;padding:2px 6px;border-radius:6px;margin-left:3px;${hit ? "animation:pulse 1.5s infinite;" : ""}">🛑${hit ? " STOP!" : " " + sym + p.stopLoss.toFixed(2)}</span>`;
+    }
+
     // Badge rating da CSV
     let ratingBadge = "";
     if (f.rating) {
@@ -2225,7 +2354,7 @@ function renderTable() {
       </td>
       <td>
         <div>${p.name}</div>
-        <div style="margin-top:3px;">${signalBadge}${fvBadge}${upsideBadge}</div>
+        <div style="margin-top:3px;">${signalBadge}${fvBadge}${upsideBadge}${targetBadge}${stopBadge}</div>
       </td>
       <td>${p.qty}</td>
       <td>${sym}${p.buyPrice.toFixed(2)}</td>
@@ -2242,6 +2371,7 @@ function renderTable() {
       <td>${weight.toFixed(1)}%</td>
       <td class="row-actions">
         <button class="icon-btn" onclick="openEditPosition('${p.id}')" title="Modifica" style="color:var(--blue)">✎</button>
+        <button class="icon-btn" onclick="openTargetModal('${p.id}')" title="Target & Stop Loss" style="color:#ffd23f">🎯</button>
         <button class="icon-btn" onclick="openClosePosition('${p.id}')" title="Chiudi posizione" style="color:var(--grad2)">⊟</button>
         <button class="icon-btn" onclick="deletePosition('${p.id}')" title="Elimina">✕</button>
       </td>
