@@ -2245,11 +2245,10 @@ const SECTORS = [
 
 let sectorDataCache = {}; // cache ticker -> data
 
-async function fetchSectorData(ticker, period) {
-  const key = ticker + "_" + period;
+async function fetchSectorData(ticker, period, interval = "1d") {
+  const key = ticker + "_" + period + "_" + interval;
   if (sectorDataCache[key]) return sectorDataCache[key];
   const fetchPeriod = period === "ytd" ? "1y" : period;
-  const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
   const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=${fetchPeriod}&interval=${interval}`;
   const res = await fetch(url);
   const data = await res.json();
@@ -2358,7 +2357,6 @@ async function loadSectorChart() {
   const period = document.getElementById("sectorPeriod")?.value || "1d";
   const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
   if (status) status.textContent = "⏳ Caricamento...";
-  sectorDataCache = {}; // clear cache on new period
 
   const datasets = [];
   const labels = [];
@@ -2366,7 +2364,7 @@ async function loadSectorChart() {
 
   for (const sector of SECTORS) {
     try {
-      const data = await fetchSectorData(sector.ticker, period);
+      const data = await fetchSectorData(sector.ticker, period, interval);
       const result = data?.chart?.result?.[0];
       if (!result) continue;
       const timestamps = result.timestamp || [];
