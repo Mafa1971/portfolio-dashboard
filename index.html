@@ -2281,7 +2281,10 @@ async function loadSectorRanking() {
       const relevantCloses = closes.slice(startIdx).filter(v => v != null);
       if (relevantCloses.length < 2) continue;
       const perf = ((relevantCloses[relevantCloses.length-1] - relevantCloses[0]) / relevantCloses[0] * 100);
-      results.push({ ...sector, perf: parseFloat(perf.toFixed(2)) });
+      const price = result.meta?.regularMarketPrice;
+      const high52 = result.meta?.fiftyTwoWeekHigh;
+      const distHigh = price && high52 ? ((price - high52) / high52 * 100) : null;
+      results.push({ ...sector, perf: parseFloat(perf.toFixed(2)), price, high52, distHigh });
     } catch(e) {}
     await new Promise(r => setTimeout(r, 200));
   }
