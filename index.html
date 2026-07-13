@@ -363,34 +363,36 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       </div>
     </div>
   </div>
-  <div class="panel" style="background:#fff;border-radius:12px;">
-    <div class="panel-title" style="color:#1a2030;">📊 PERFORMANCE SETTORI — CLASSIFICA
-      <select id="rankPeriod" onchange="loadSectorRanking()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
+  <div class="panel">
+    <div class="panel-title">📊 PERFORMANCE SETTORI — CLASSIFICA
+      <select id="rankPeriod" onchange="loadSectorRanking()" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
         <option value="ytd">YTD (Inizio Anno)</option>
         <option value="1y">Ultimo Anno</option>
         <option value="6mo">Ultimi 6 Mesi</option>
         <option value="3mo">Ultimi 3 Mesi</option>
         <option value="1mo">Ultimo Mese</option>
       </select>
-      <button onclick="loadSectorRanking()" style="background:#1a2030;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
+      <button onclick="loadSectorRanking()" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
     </div>
-    <div id="sectorRankStatus" style="font-size:11px;color:#666;padding:4px 0;"></div>
-    <div style="height:380px;background:#fff;border-radius:8px;">
-      <canvas id="chartSectorRank"></canvas>
-    </div>
+    <div id="sectorRankStatus" style="font-size:11px;color:var(--dim);padding:4px 0;"></div>
+    <div id="sectorRankTable"></div>
   </div>
-  <div class="panel">
-    <div class="panel-title">📈 ANDAMENTO SETTORI NEL TEMPO
-      <select id="sectorPeriod" onchange="loadSectorTable()" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
+  <div class="panel" style="background:#fff;border-radius:12px;">
+    <div class="panel-title" style="color:#1a2030;">📈 ANDAMENTO SETTORI NEL TEMPO
+      <select id="sectorPeriod" onchange="loadSectorChart()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
         <option value="5d">5 Giorni</option>
         <option value="1mo" selected>1 Mese</option>
         <option value="3mo">3 Mesi</option>
         <option value="6mo">6 Mesi</option>
         <option value="1y">1 Anno</option>
       </select>
-      <button onclick="loadSectorTable()" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
+      <button onclick="loadSectorChart()" style="background:#1a2030;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
     </div>
-    <div id="sectorTableWrap"><div class="empty-state"><p>Apri la tab Mercati per caricare i dati</p></div></div>
+    <div id="sectorChartStatus" style="font-size:11px;color:#666;padding:8px 0;"></div>
+    <div style="height:420px;background:#fff;border-radius:8px;">
+      <canvas id="chartSectors"></canvas>
+    </div>
+    <div id="sectorLegend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding:8px 0;"></div>
   </div>
 </div>
 
@@ -1379,7 +1381,7 @@ function switchTab(name) {
   }
   if (name === "Mercati") {
     setTimeout(() => loadSectorRanking(), 300);
-    setTimeout(() => loadSectorTable(), 300);
+    setTimeout(() => loadSectorChart(), 500);
   }
 }
 window.switchTab = switchTab;
@@ -2289,66 +2291,99 @@ async function loadSectorRanking() {
   // Sort by performance descending
   results.sort((a, b) => b.perf - a.perf);
 
-  const ctx = document.getElementById("chartSectorRank");
-  if (!ctx) return;
-  if (chartSectorRank) chartSectorRank.destroy();
-
-  const labels = results.map(r => r.name);
-  const values = results.map(r => r.perf);
-  const colors = results.map(r => r.perf >= 0 ? "#00c49a" : "#ff6b6b");
-  const borderColors = results.map(r => r.perf >= 0 ? "#00a882" : "#e05555");
-
-  // Period label
-  const periodLabel = { ytd: "YTD", "1y": "1 Anno", "6mo": "6 Mesi", "3mo": "3 Mesi", "1mo": "1 Mese" }[period] || period;
-
-  chartSectorRank = new Chart(ctx.getContext("2d"), {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: `Performance ${periodLabel}`,
-        data: values,
-        backgroundColor: colors,
-        borderColor: borderColors,
-        borderWidth: 1,
-        borderRadius: 6
-      }]
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.parsed.x >= 0 ? "+" : ""}${ctx.parsed.x.toFixed(2)}%`
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: "#555",
-            font: { size: 11 },
-            callback: v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%"
-          },
-          grid: { color: "#eee" },
-          border: { color: "#ddd" }
-        },
-        y: {
-          ticks: { color: "#333", font: { size: 11, weight: "600" } },
-          grid: { display: false }
-        }
-      }
-    }
+  const periodLabel = { ytd:"YTD", "1y":"1 Anno", "6mo":"6 Mesi", "3mo":"3 Mesi", "1mo":"1 Mese" }[period] || period;
+  const tableWrap = document.getElementById("sectorRankTable");
+  if (!tableWrap) return;
+  let h = `<table style="width:100%;border-collapse:collapse;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:8px;font-size:9px;color:var(--dim);">#</th>
+      <th style="text-align:left;padding:8px;font-size:9px;color:var(--dim);">SETTORE</th>
+      <th style="text-align:left;padding:8px;font-size:9px;color:var(--dim);">ETF</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">PREZZO</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">PERF ${periodLabel}</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">DA MAX 52W</th>
+    </tr>`;
+  results.forEach((s, i) => {
+    const col = s.perf >= 0 ? "#00d4b8" : "#ff6b6b";
+    const distCol = s.distHigh && s.distHigh > -5 ? "#00d4b8" : s.distHigh && s.distHigh > -15 ? "#ffd23f" : "#ff6b6b";
+    h += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:10px 8px;color:var(--dim);font-weight:700;">${i+1}</td>
+      <td style="padding:10px 8px;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0;"></div><strong>${s.name}</strong></div></td>
+      <td style="padding:10px 8px;font-size:11px;color:var(--dim);">${s.ticker}</td>
+      <td style="text-align:right;padding:10px 8px;font-family:'JetBrains Mono',monospace;">$${s.price?.toFixed(2)||"--"}</td>
+      <td style="text-align:right;padding:10px 8px;"><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${col};background:${col}22;padding:4px 10px;border-radius:6px;">${s.perf>=0?"+":""}${s.perf.toFixed(2)}%</span></td>
+      <td style="text-align:right;padding:10px 8px;font-size:11px;color:${distCol};">${s.distHigh!=null?s.distHigh.toFixed(1)+"%":"--"}</td>
+    </tr>`;
   });
+  h += `</table>`;
+  tableWrap.innerHTML = h;
+  if (status) status.textContent = "";
 }
 window.loadSectorRanking = loadSectorRanking;
 
+// ── SECTOR LINE CHART ─────────────────────────────────────────────────
+let chartSectors = null;
 
+async function loadSectorChart() {
+  const status = document.getElementById("sectorChartStatus");
+  const period = document.getElementById("sectorPeriod")?.value || "1mo";
+  const interval = period === "5d" ? "15m" : "1d";
+  if (status) status.textContent = "⏳ Caricamento...";
 
-async function loadSectorTable() {
+  const datasets = [], labels = [];
+  let labelsSet = false;
+
+  for (const sector of SECTORS) {
+    try {
+      const data = await fetchSectorData(sector.ticker, period, interval);
+      const result = data?.chart?.result?.[0];
+      if (!result) continue;
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators?.quote?.[0]?.close || [];
+      if (!labelsSet && timestamps.length > 0) {
+        timestamps.forEach(ts => {
+          const d = new Date(ts * 1000);
+          if (period === "5d") labels.push(d.toLocaleDateString("it-IT", { weekday: "short", hour: "2-digit", minute: "2-digit" }));
+          else labels.push(d.toLocaleDateString("it-IT", { month: "short", day: "numeric" }));
+        });
+        labelsSet = true;
+      }
+      const firstClose = closes.find(v => v != null);
+      if (!firstClose) continue;
+      const normalized = closes.map(v => v != null ? parseFloat(((v - firstClose) / firstClose * 100).toFixed(3)) : null);
+      datasets.push({ label: sector.name, data: normalized, borderColor: sector.color, backgroundColor: "transparent", borderWidth: 2, pointRadius: 0, tension: 0.3, spanGaps: true });
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  if (status) status.textContent = "";
+  const ctx = document.getElementById("chartSectors");
+  if (!ctx) return;
+  if (chartSectors) chartSectors.destroy();
+  chartSectors = new Chart(ctx.getContext("2d"), {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: "index", intersect: false, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y!=null?(c.parsed.y>=0?"+":"")+c.parsed.y.toFixed(2)+"%":"--"}` } }
+      },
+      scales: {
+        x: { ticks: { color: "#666", font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: "#eee" } },
+        y: { ticks: { color: "#666", font: { size: 10 }, callback: v => (v>=0?"+":"")+v.toFixed(1)+"%" }, grid: { color: "#eee" } }
+      },
+      interaction: { mode: "index", intersect: false }
+    }
+  });
+  const legend = document.getElementById("sectorLegend");
+  if (legend) {
+    legend.innerHTML = SECTORS.map(s =>
+      `<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#444;"><div style="width:16px;height:3px;background:${s.color};border-radius:2px;"></div><span>${s.name}</span></div>`
+    ).join("");
+  }
+}
+window.loadSectorChart = loadSectorChart;
   const wrap = document.getElementById("sectorTableWrap");
   const period = document.getElementById("sectorPeriod")?.value || "1mo";
   if (wrap) wrap.innerHTML = `<div style="color:var(--dim);font-size:11px;padding:8px;">⏳ Caricamento...</div>`;
