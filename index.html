@@ -382,10 +382,10 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <div class="panel" style="background:#fff;border-radius:12px;">
     <div class="panel-title" style="color:#1a2030;">PERFORMANCE SETTORI — ANDAMENTO NEL TEMPO
       <select id="sectorPeriod" onchange="loadSectorChart()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
-        <option value="1d">Oggi</option>
         <option value="5d">5 Giorni</option>
-        <option value="1mo">1 Mese</option>
+        <option value="1mo" selected>1 Mese</option>
         <option value="3mo">3 Mesi</option>
+        <option value="6mo">6 Mesi</option>
         <option value="1y">1 Anno</option>
       </select>
       <button onclick="loadSectorChart()" style="background:#1a2030;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
@@ -1383,7 +1383,7 @@ function switchTab(name) {
   }
   if (name === "Mercati") {
     setTimeout(() => loadSectorRanking(), 300);
-    setTimeout(() => loadSectorChart(), 500);
+    setTimeout(() => loadSectorChart(), 3000);
   }
 }
 window.switchTab = switchTab;
@@ -2354,8 +2354,8 @@ window.loadSectorRanking = loadSectorRanking;
 
 async function loadSectorChart() {
   const status = document.getElementById("sectorChartStatus");
-  const period = document.getElementById("sectorPeriod")?.value || "1d";
-  const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
+  const period = document.getElementById("sectorPeriod")?.value || "1mo";
+  const interval = "1d"; // sempre giornaliero per affidabilità
   if (status) status.textContent = "⏳ Caricamento...";
 
   const datasets = [];
