@@ -262,6 +262,11 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       <div class="empty-state"><div class="ic">◌</div><p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p></div>
     </div>
   </div>
+  <!-- RISCHIO PORTAFOGLIO -->
+  <div class="panel">
+    <div class="panel-title">RISCHIO PORTAFOGLIO</div>
+    <div id="riskWrap"><div class="empty-state"><p>IMPOSTA GLI STOP LOSS PER VEDERE IL RISCHIO</p></div></div>
+  </div>
   <!-- NEWS -->
   <div class="panel">
     <div class="panel-title">NEWS POSIZIONI</div>
@@ -359,7 +364,23 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     </div>
   </div>
   <div class="panel" style="background:#fff;border-radius:12px;">
-    <div class="panel-title" style="color:#1a2030;">PERFORMANCE SETTORI — ANDAMENTO GIORNALIERO
+    <div class="panel-title" style="color:#1a2030;">📊 PERFORMANCE SETTORI — CLASSIFICA
+      <select id="rankPeriod" onchange="loadSectorRanking()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
+        <option value="ytd">YTD (Inizio Anno)</option>
+        <option value="1y">Ultimo Anno</option>
+        <option value="6mo">Ultimi 6 Mesi</option>
+        <option value="3mo">Ultimi 3 Mesi</option>
+        <option value="1mo">Ultimo Mese</option>
+      </select>
+      <button onclick="loadSectorRanking()" style="background:#1a2030;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;">↻ Aggiorna</button>
+    </div>
+    <div id="sectorRankStatus" style="font-size:11px;color:#666;padding:4px 0;"></div>
+    <div style="height:380px;background:#fff;border-radius:8px;">
+      <canvas id="chartSectorRank"></canvas>
+    </div>
+  </div>
+  <div class="panel" style="background:#fff;border-radius:12px;">
+    <div class="panel-title" style="color:#1a2030;">PERFORMANCE SETTORI — ANDAMENTO NEL TEMPO
       <select id="sectorPeriod" onchange="loadSectorChart()" style="background:#f0f2f5;border:1px solid #ddd;color:#1a2030;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;">
         <option value="1d">Oggi</option>
         <option value="5d">5 Giorni</option>
@@ -399,9 +420,54 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <span class="tab-icon">🌍</span>
     <span class="tab-label">Mercati</span>
   </button>
+  <button class="tab-btn" onclick="switchTab('Simulatore')" id="tabBtnSimulatore">
+    <span class="tab-icon">🔄</span>
+    <span class="tab-label">Simulatore</span>
+  </button>
 </nav>
 
-<footer style="margin-bottom:70px;">DATI: YAHOO FINANCE (NON UFFICIALE) — SOLO INFORMATIVO — NON CONSULENZA FINANZIARIA</footer>
+<!-- TAB SIMULATORE -->
+<div id="tabSimulatore" class="tab-content" style="padding-bottom:80px;">
+  <div class="panel">
+    <div class="panel-title">🔄 SIMULATORE PORTAFOGLIO ROTAZIONALE
+      <select id="simProfile" style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;font-size:11px;">
+        <option value="conservativo">🛡️ Conservativo (8 titoli)</option>
+        <option value="bilanciato" selected>⚖️ Bilanciato (10 titoli)</option>
+        <option value="aggressivo">🚀 Aggressivo (12 titoli)</option>
+        <option value="allweather">🌦️ All Weather (10 titoli)</option>
+        <option value="buffett">🎩 Buffett (10 titoli)</option>
+        <option value="tech">💻 Tech Focus (10 titoli)</option>
+      </select>
+      <input type="number" id="simCapital" placeholder="Capitale €" value="20000" step="1000"
+        style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;width:120px;">
+      <button class="btn primary" onclick="runSimulator()" style="padding:6px 16px;font-size:11px;">▶ ESEGUI SIMULAZIONE</button>
+    </div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:12px;">
+      Universo: titoli dalla Watchlist con dati aggiornati. Stop Loss fisso: <strong style="color:#ff6b6b;">-7%</strong> per posizione. Revisione: mensile.
+    </div>
+    <div id="simStatus" style="font-size:11px;color:var(--grad1);margin-bottom:8px;"></div>
+  </div>
+
+  <div class="panel" id="simResultsPanel" style="display:none;">
+    <div class="panel-title">📊 CLASSIFICA TITOLI — SCORE COMPOSITO</div>
+    <div id="simRanking"></div>
+  </div>
+
+  <div class="panel" id="simAllocationPanel" style="display:none;">
+    <div class="panel-title">💼 ALLOCAZIONE SUGGERITA</div>
+    <div id="simAllocation"></div>
+  </div>
+
+  <div class="panel" id="simRotationPanel" style="display:none;">
+    <div class="panel-title">🔄 AZIONI DI ROTAZIONE</div>
+    <div id="simRotation"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">📅 STORICO SIMULAZIONI</div>
+    <div id="simHistory"><div class="empty-state"><p>NESSUNA SIMULAZIONE ESEGUITA</p></div></div>
+  </div>
+</div>
 
 <!-- MODAL ADD POSITION -->
 <div class="modal-overlay" id="modalOverlay">
@@ -799,6 +865,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div><!-- end appContent -->
 
 <script>
+
 
 
 
@@ -1315,7 +1382,7 @@ function switchTab(name) {
     setTimeout(() => { renderCharts(); renderCapitalChart(); }, 50);
   }
   if (name === "Mercati") {
-    setTimeout(() => loadSectorChart(), 300);
+    setTimeout(() => { loadSectorChart(); loadSectorRanking(); }, 300);
   }
 }
 window.switchTab = switchTab;
@@ -1548,6 +1615,146 @@ function calcSMA(closes, period) {
   return closes.slice(-period).reduce((a, b) => a + b, 0) / period;
 }
 
+function calcEMA(closes, period) {
+  if (closes.length < period) return null;
+  const k = 2 / (period + 1);
+  let ema = closes.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < closes.length; i++) {
+    ema = closes[i] * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+function calcMACD(closes) {
+  if (closes.length < 26) return { macd: null, signal: null, histogram: null };
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macd = ema12 - ema26;
+  // Signal line: EMA9 of MACD values
+  const macdValues = [];
+  for (let i = 26; i <= closes.length; i++) {
+    const e12 = calcEMA(closes.slice(0, i), 12);
+    const e26 = calcEMA(closes.slice(0, i), 26);
+    if (e12 && e26) macdValues.push(e12 - e26);
+  }
+  const signal = macdValues.length >= 9 ? calcEMA(macdValues, 9) : null;
+  return { macd, signal, histogram: signal ? macd - signal : null };
+}
+
+function calcDPO(closes, period = 21) {
+  if (closes.length < period + period/2 + 1) return { value: null, text: "--", color: "#7d8aa3" };
+  const shift = Math.floor(period / 2) + 1;
+  const smaValues = [];
+  for (let i = period - 1; i < closes.length; i++) {
+    smaValues.push(closes.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period);
+  }
+  const dpoValues = closes.slice(period - 1).map((c, i) => c - (smaValues[i - shift] || smaValues[0]));
+  const recent = dpoValues.slice(-8);
+  const emaRecent = calcEMA(recent, Math.min(8, recent.length));
+  const emaPrev = dpoValues.length > 8 ? calcEMA(dpoValues.slice(-9, -1), Math.min(8, dpoValues.length - 1)) : emaRecent;
+  const above = emaRecent > 0;
+  const rising = emaRecent > emaPrev;
+  let text, color;
+  if (above && rising)       { text = "Forte";     color = "#00d4b8"; }
+  else if (above && !rising) { text = "In Calo";   color = "#ffd23f"; }
+  else if (!above && rising) { text = "Recupero";  color = "#80ed99"; }
+  else                       { text = "Debole";    color = "#ff6b6b"; }
+  return { value: emaRecent, text, color };
+}
+
+function calcIchimoku(closes, highs, lows) {
+  if (!highs || !lows || closes.length < 52) return { aboveKumo: null, tenkanAboveKijun: null };
+  const highest = (arr, n) => Math.max(...arr.slice(-n));
+  const lowest = (arr, n) => Math.min(...arr.slice(-n));
+  const tenkan = (highest(highs, 9) + lowest(lows, 9)) / 2;
+  const kijun = (highest(highs, 26) + lowest(lows, 26)) / 2;
+  const spanA = (tenkan + kijun) / 2;
+  const spanB = (highest(highs, 52) + lowest(lows, 52)) / 2;
+  const kumoTop = Math.max(spanA, spanB);
+  const kumoBot = Math.min(spanA, spanB);
+  const price = closes[closes.length - 1];
+  return {
+    aboveKumo: price > kumoTop,
+    belowKumo: price < kumoBot,
+    tenkanAboveKijun: tenkan > kijun,
+    kumoTop, kumoBot, tenkan, kijun, spanA, spanB
+  };
+}
+
+function calcSentiment(closes, highs, lows, rsi) {
+  if (closes.length < 60) return { score: 0, text: "Neutro", color: "#7d8aa3" };
+  const low252 = Math.min(...closes.slice(-Math.min(252, closes.length)));
+  const high252 = Math.max(...closes.slice(-Math.min(252, closes.length)));
+  const price = closes[closes.length - 1];
+  const rangePos = high252 !== low252 ? ((price - low252) / (high252 - low252)) * 100 : 50;
+  
+  const returns = closes.slice(-60).map((c, i, arr) => i > 0 ? (c - arr[i-1]) / arr[i-1] : 0).slice(1);
+  const volBreve = Math.sqrt(returns.slice(-10).reduce((s, r) => s + r*r, 0) / 10);
+  const volLunga = Math.sqrt(returns.reduce((s, r) => s + r*r, 0) / returns.length);
+  const volRatio = volLunga > 0 ? volBreve / volLunga : 1;
+
+  let score = 0;
+  score += rangePos > 70 ? 1 : rangePos < 30 ? -1 : 0;
+  score += rsi && rsi > 55 ? 1 : rsi && rsi < 45 ? -1 : 0;
+  score += volRatio < 0.8 ? 1 : volRatio > 1.3 ? -1 : 0;
+
+  const text = score >= 2 ? "Risk-On" : score >= 1 ? "Mod.+" : score <= -2 ? "Risk-Off" : score <= -1 ? "Mod.-" : "Neutro";
+  const color = score >= 2 ? "#00d4b8" : score >= 1 ? "#80ed99" : score <= -2 ? "#ff6b6b" : score <= -1 ? "#ffd23f" : "#7d8aa3";
+  return { score, text, color };
+}
+
+function calcCompositeScore(closes, highs, lows, fundamentalData = {}) {
+  // Tecnico (0-7 come Pine Script)
+  const price = closes[closes.length - 1];
+  const sma50 = calcSMA(closes, 50);
+  const sma200 = calcSMA(closes, 200);
+  const rsi = calcRSI(closes, 14);
+  const { macd, signal } = calcMACD(closes);
+  const ichimoku = calcIchimoku(closes, highs, lows);
+
+  let techScore = 0;
+  if (sma50) techScore += price > sma50 ? 1 : -1;
+  if (sma200) techScore += price > sma200 ? 1 : -1;
+  if (sma50 && sma200) techScore += sma50 > sma200 ? 1 : -1;
+  if (rsi) techScore += rsi > 50 ? 1 : rsi < 30 ? 1 : -1;
+  if (macd && signal) techScore += macd > signal ? 1 : -1;
+  if (ichimoku.aboveKumo !== null) techScore += ichimoku.aboveKumo ? 1 : ichimoku.belowKumo ? -1 : 0;
+  if (ichimoku.tenkanAboveKijun !== null) techScore += ichimoku.tenkanAboveKijun ? 1 : -1;
+
+  // Normalizza techScore da [-7,7] a [0,10]
+  const techNorm = ((techScore + 7) / 14) * 10;
+
+  // Fondamentale (0-10)
+  let fundScore = 5; // neutro
+  const { fairValueLabel, analystUpside, pe, cashFlowLabel } = fundamentalData;
+  if (fairValueLabel === "Sottovalutato") fundScore += 2;
+  else if (fairValueLabel === "Moderatamente sottovalutato") fundScore += 1;
+  else if (fairValueLabel === "Sopravvalutato") fundScore -= 2;
+  else if (fairValueLabel === "Moderatamente sopravvalutato") fundScore -= 1;
+  if (analystUpside > 30) fundScore += 2;
+  else if (analystUpside > 15) fundScore += 1;
+  else if (analystUpside < 0) fundScore -= 1;
+  if (pe && pe < 15) fundScore += 1;
+  else if (pe && pe > 30) fundScore -= 1;
+  if (cashFlowLabel === "Eccellente" || cashFlowLabel === "Ottima") fundScore += 1;
+  else if (cashFlowLabel === "Debole") fundScore -= 1;
+  fundScore = Math.max(0, Math.min(10, fundScore));
+
+  // Score composito pesato
+  const composite = (techNorm * 0.6 + fundScore * 0.4);
+
+  // Rating text
+  const techRating = techScore >= 5 ? "Strong Buy" : techScore >= 2 ? "Buy" : techScore >= -1 ? "Neutral" : techScore >= -4 ? "Sell" : "Strong Sell";
+  const techColor = techScore >= 5 ? "#00d4b8" : techScore >= 2 ? "#80ed99" : techScore >= -1 ? "#ffd23f" : techScore >= -4 ? "#ff9f1c" : "#ff6b6b";
+
+  return {
+    composite: parseFloat(composite.toFixed(1)),
+    techScore, techNorm: parseFloat(techNorm.toFixed(1)),
+    fundScore, techRating, techColor,
+    rsi, sma50, sma200, macd, signal, ichimoku
+  };
+}
+
 function calcRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
   const recent = closes.slice(-(period + 1));
@@ -1572,6 +1779,8 @@ function getSignal(price, sma21, sma100, sma200, rsi) {
   if (!ab21 && ab100 === false) return { label: "SELL", color: "#ff6b6b" };
   return { label: "NEUTRO", color: "#ffd23f" };
 }
+
+
 
 
 
@@ -1690,7 +1899,335 @@ document.getElementById("btnConfirmClose").addEventListener("click", () => {
   renderAll();
 });
 
-// ── SECTOR CHART ──────────────────────────────────────────────────────
+// ── RISK PANEL ────────────────────────────────────────────────────────
+function renderRisk() {
+  const wrap = document.getElementById("riskWrap");
+  if (!wrap) return;
+  const posWithStop = positions.filter(p => p.stopLoss && p.currentPrice);
+  if (posWithStop.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>IMPOSTA GLI STOP LOSS PER VEDERE IL RISCHIO</p></div>`;
+    return;
+  }
+  const totalInvested = positions.reduce((s, p) => s + convertToEur(p.buyPrice * p.qty, p.currency), 0);
+  let totalRisk = 0;
+  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px;">`;
+
+  posWithStop.forEach(p => {
+    const sym = p.currency === "USD" ? "$" : "€";
+    const invested = p.buyPrice * p.qty;
+    const maxLoss = (p.buyPrice - p.stopLoss) * p.qty;
+    const maxLossEur = convertToEur(maxLoss, p.currency);
+    const riskPct = (maxLoss / invested * 100).toFixed(1);
+    totalRisk += maxLossEur;
+    const col = parseFloat(riskPct) > 7 ? "#ff6b6b" : "#ffd23f";
+    html += `<div class="card" style="border-left:3px solid ${col};">
+      <div style="font-weight:700;font-size:12px;">${p.ticker}</div>
+      <div style="font-size:10px;color:var(--dim);">Stop: ${sym}${p.stopLoss.toFixed(2)} | Attuale: ${sym}${(p.currentPrice||p.buyPrice).toFixed(2)}</div>
+      <div style="font-size:13px;font-weight:700;color:${col};margin-top:4px;">-${sym}${Math.abs(maxLoss).toFixed(0)} (-${riskPct}%)</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  const riskPctTotal = totalInvested > 0 ? (totalRisk / totalInvested * 100).toFixed(1) : 0;
+  const riskCol = parseFloat(riskPctTotal) > 10 ? "#ff6b6b" : parseFloat(riskPctTotal) > 5 ? "#ffd23f" : "#00d4b8";
+  html += `<div style="background:var(--panel2);border-radius:10px;padding:14px;border:1px solid ${riskCol}44;">
+    <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;">RISCHIO TOTALE SE TUTTI GLI STOP VENGONO TRIGGERATI</div>
+    <div style="font-size:22px;font-weight:800;color:${riskCol};">-€${Math.abs(totalRisk).toFixed(0)} (-${riskPctTotal}% del capitale investito)</div>
+  </div>`;
+  wrap.innerHTML = html;
+}
+
+// ── SIMULATORE PORTAFOGLIO ROTAZIONALE ───────────────────────────────
+const SIM_PROFILES = {
+  conservativo: { name: "Conservativo", n: 8,  icon: "🛡️", weights: { "Finanziario":25, "Utilities":20, "Salute":20, "Consumer":15, "Industriali":10, "Energia":10 } },
+  bilanciato:   { name: "Bilanciato",   n: 10, icon: "⚖️", weights: { "Tecnologia":25, "Salute":20, "Finanziario":20, "Consumer":15, "Industriali":10, "Utilities":10 } },
+  aggressivo:   { name: "Aggressivo",   n: 12, icon: "🚀", weights: { "Tecnologia":45, "Salute":20, "Consumer":15, "Industriali":10, "Energia":10 } },
+  allweather:   { name: "All Weather",  n: 10, icon: "🌦️", weights: { "Industriali":30, "Utilities":25, "Finanziario":20, "Energia":15, "Materiali":10 } },
+  buffett:      { name: "Buffett",      n: 10, icon: "🎩", weights: { "Finanziario":35, "Consumer":25, "Industriali":20, "Energia":10, "Salute":10 } },
+  tech:         { name: "Tech Focus",   n: 10, icon: "💻", weights: { "Tecnologia":60, "Salute":15, "Consumer":15, "Industriali":10 } }
+};
+
+let simHistory = [];
+try { simHistory = JSON.parse(localStorage.getItem("sim_history_v1") || "[]"); } catch(e) {}
+
+async function runSimulator() {
+  const profile = document.getElementById("simProfile").value;
+  const capital = parseFloat(document.getElementById("simCapital").value) || 20000;
+  const prof = SIM_PROFILES[profile];
+  const status = document.getElementById("simStatus");
+
+  // Filter watchlist items with price data
+  const universe = watchlist.filter(w => w.price && w.price > 0);
+  if (universe.length < 5) {
+    status.textContent = "⚠ Aggiungi almeno 5 titoli con prezzi aggiornati nella Watchlist per eseguire la simulazione.";
+    return;
+  }
+
+  status.textContent = `⏳ Calcolo score per ${universe.length} titoli...`;
+
+  // Calculate composite score for each watchlist item
+  const scored = [];
+  for (const w of universe) {
+    // Fetch full data if not cached
+    let closes = w._closes || [];
+    let highs = w._highs || [];
+    let lows = w._lows || [];
+
+    if (closes.length < 50) {
+      try {
+        const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(w.ticker)}&range=1y&interval=1d`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const quote = data?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+        closes = (quote.close || []).filter(v => v != null);
+        highs = quote.high || [];
+        lows = quote.low || [];
+        w._closes = closes;
+        w._highs = highs;
+        w._lows = lows;
+        status.textContent = `⏳ Analisi ${w.ticker}... (${scored.length}/${universe.length})`;
+        await new Promise(r => setTimeout(r, 400));
+      } catch(e) { continue; }
+    }
+
+    const scoreData = calcCompositeScore(closes, highs, lows, {
+      fairValueLabel: w.fairValueLabel,
+      analystUpside: w.analystUpside,
+      pe: w.pe,
+      cashFlowLabel: w.cashFlowLabel
+    });
+    const dpo = calcDPO(closes);
+    const sentiment = calcSentiment(closes, highs, lows, scoreData.rsi);
+    const dist52 = w.low52 && w.price ? ((w.price - w.low52) / w.low52 * 100) : null;
+
+    scored.push({
+      ...w, scoreData, dpo, sentiment, dist52,
+      finalScore: scoreData.composite
+    });
+  }
+
+  // Sort by score
+  scored.sort((a, b) => b.finalScore - a.finalScore);
+
+  // Select top N respecting sector weights
+  const selected = selectByProfile(scored, prof);
+
+  // Calculate allocation
+  const perTicker = capital / selected.length;
+  const stopLossAmt = perTicker * 0.07;
+
+  // Render results
+  renderSimResults(scored, selected, prof, capital, perTicker, stopLossAmt);
+
+  // Save to history
+  const entry = {
+    date: new Date().toLocaleDateString("it-IT"),
+    profile: prof.name,
+    capital,
+    tickers: selected.map(s => s.ticker),
+    avgScore: (selected.reduce((s, x) => s + x.finalScore, 0) / selected.length).toFixed(1)
+  };
+  simHistory.unshift(entry);
+  if (simHistory.length > 12) simHistory = simHistory.slice(0, 12);
+  try { localStorage.setItem("sim_history_v1", JSON.stringify(simHistory)); } catch(e) {}
+  renderSimHistory();
+
+  status.textContent = `✅ Simulazione completata — ${selected.length} titoli selezionati su ${universe.length} analizzati`;
+}
+window.runSimulator = runSimulator;
+
+function selectByProfile(scored, prof) {
+  const selected = [];
+  const sectorCount = {};
+  const weights = prof.weights;
+  const totalPct = Object.values(weights).reduce((s, v) => s + v, 0);
+
+  // Per ogni settore calcola quanti titoli prendere
+  const sectorSlots = {};
+  Object.entries(weights).forEach(([sector, pct]) => {
+    sectorSlots[sector] = Math.max(1, Math.round((pct / totalPct) * prof.n));
+  });
+
+  // Prima passa: seleziona per settore
+  for (const s of scored) {
+    const sec = s.sector || "Altro";
+    const matchSector = Object.keys(sectorSlots).find(k => sec.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(sec.toLowerCase()));
+    if (matchSector && (sectorCount[matchSector] || 0) < sectorSlots[matchSector]) {
+      selected.push(s);
+      sectorCount[matchSector] = (sectorCount[matchSector] || 0) + 1;
+    }
+    if (selected.length >= prof.n) break;
+  }
+
+  // Seconda passa: riempi con i migliori score rimanenti
+  for (const s of scored) {
+    if (selected.length >= prof.n) break;
+    if (!selected.find(x => x.ticker === s.ticker)) {
+      selected.push(s);
+    }
+  }
+
+  return selected.slice(0, prof.n);
+}
+
+function renderSimResults(allScored, selected, prof, capital, perTicker, stopLossAmt) {
+  // Show panels
+  document.getElementById("simResultsPanel").style.display = "block";
+  document.getElementById("simAllocationPanel").style.display = "block";
+  document.getElementById("simRotationPanel").style.display = "block";
+
+  // Ranking table
+  const rankHtml = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">#</th>
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">TICKER</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">SCORE</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">TECNICO</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">DPO</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">SENTIMENT</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RSI</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">+MIN52W</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">STATO</th>
+    </tr>
+    ${allScored.slice(0, 20).map((s, i) => {
+      const inSel = selected.find(x => x.ticker === s.ticker);
+      const sc = s.finalScore;
+      const scCol = sc >= 7 ? "#00d4b8" : sc >= 5 ? "#80ed99" : sc >= 3 ? "#ffd23f" : "#ff6b6b";
+      const tCol = s.scoreData.techColor;
+      return `<tr style="border-top:1px solid #1a2030;${inSel ? "background:#00d4b808;" : ""}">
+        <td style="padding:8px;color:var(--dim);">${i+1}</td>
+        <td style="padding:8px;font-weight:700;">${s.ticker} <span style="font-size:10px;color:var(--dim);">${s.name}</span></td>
+        <td style="text-align:center;padding:8px;"><span style="font-weight:800;color:${scCol};font-size:14px;">${sc.toFixed(1)}</span></td>
+        <td style="text-align:center;padding:8px;"><span style="font-size:10px;font-weight:700;color:${tCol};background:${tCol}22;padding:2px 8px;border-radius:6px;">${s.scoreData.techRating}</span></td>
+        <td style="text-align:center;padding:8px;"><span style="font-size:10px;color:${s.dpo?.color || "#7d8aa3"};">${s.dpo?.text || "--"}</span></td>
+        <td style="text-align:center;padding:8px;"><span style="font-size:10px;color:${s.sentiment?.color || "#7d8aa3"};">${s.sentiment?.text || "--"}</span></td>
+        <td style="text-align:right;padding:8px;font-size:11px;color:${s.scoreData.rsi > 70 ? "#ff7700" : s.scoreData.rsi < 30 ? "#00d4b8" : "var(--dim)"};">${s.scoreData.rsi?.toFixed(0) || "--"}</td>
+        <td style="text-align:right;padding:8px;font-size:11px;color:var(--dim);">${s.dist52 != null ? "+" + s.dist52.toFixed(0) + "%" : "--"}</td>
+        <td style="text-align:center;padding:8px;">${inSel ? '<span style="color:#00d4b8;font-weight:700;font-size:11px;">✅ SELEZIONATO</span>' : '<span style="color:var(--dim);font-size:11px;">—</span>'}</td>
+      </tr>`;
+    }).join("")}
+  </table></div>`;
+  document.getElementById("simRanking").innerHTML = rankHtml;
+
+  // Allocation
+  const allocHtml = `
+    <div style="margin-bottom:12px;font-size:12px;color:var(--dim);">
+      Profilo: <strong style="color:var(--txt);">${prof.icon} ${prof.name}</strong> | 
+      Capitale: <strong style="color:var(--txt);">€${capital.toLocaleString("it-IT")}</strong> | 
+      Per titolo: <strong style="color:#ffd23f;">€${perTicker.toFixed(0)}</strong> | 
+      Stop Loss -7%: <strong style="color:#ff6b6b;">-€${stopLossAmt.toFixed(0)}</strong> per posizione
+    </div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <tr style="border-bottom:1px solid var(--line);">
+        <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">TICKER</th>
+        <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">SETTORE</th>
+        <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
+        <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">IMPORTO</th>
+        <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">AZIONI</th>
+        <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">STOP LOSS</th>
+        <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RISCHIO MAX</th>
+        <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">SCORE</th>
+      </tr>
+      ${selected.map(s => {
+        const sym = s.currency === "EUR" ? "€" : "$";
+        const qty = s.price ? Math.floor(perTicker / s.price) : 0;
+        const stopPrice = s.price ? (s.price * 0.93).toFixed(2) : "--";
+        const maxLoss = s.price ? (qty * s.price * 0.07).toFixed(0) : "--";
+        const sc = s.finalScore;
+        const scCol = sc >= 7 ? "#00d4b8" : sc >= 5 ? "#80ed99" : sc >= 3 ? "#ffd23f" : "#ff6b6b";
+        return `<tr style="border-top:1px solid #1a2030;">
+          <td style="padding:8px;font-weight:700;">${s.ticker}</td>
+          <td style="padding:8px;font-size:10px;color:var(--dim);">${s.sector || "Altro"}</td>
+          <td style="text-align:right;padding:8px;">${sym}${s.price?.toFixed(2) || "--"}</td>
+          <td style="text-align:right;padding:8px;font-weight:700;color:#ffd23f;">€${perTicker.toFixed(0)}</td>
+          <td style="text-align:right;padding:8px;">${qty}</td>
+          <td style="text-align:right;padding:8px;color:#ff6b6b;">${sym}${stopPrice}</td>
+          <td style="text-align:right;padding:8px;color:#ff6b6b;">-€${maxLoss}</td>
+          <td style="text-align:center;padding:8px;"><span style="font-weight:800;color:${scCol};">${sc.toFixed(1)}</span></td>
+        </tr>`;
+      }).join("")}
+      <tr style="border-top:2px solid var(--line);font-weight:700;">
+        <td colspan="3" style="padding:10px 8px;">TOTALE</td>
+        <td style="text-align:right;padding:10px 8px;color:#ffd23f;">€${(perTicker * selected.length).toFixed(0)}</td>
+        <td></td>
+        <td></td>
+        <td style="text-align:right;padding:10px 8px;color:#ff6b6b;">-€${(selected.length * parseFloat(stopLossAmt)).toFixed(0)}</td>
+        <td></td>
+      </tr>
+    </table></div>`;
+  document.getElementById("simAllocation").innerHTML = allocHtml;
+
+  // Rotation actions
+  const current = positions.map(p => p.ticker);
+  const toAdd = selected.filter(s => !current.includes(s.ticker));
+  const toSell = positions.filter(p => !selected.find(s => s.ticker === p.ticker));
+  const toKeep = selected.filter(s => current.includes(s.ticker));
+
+  let rotHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">`;
+
+  if (toAdd.length > 0) {
+    rotHtml += `<div style="background:#00d4b811;border:1px solid #00d4b844;border-radius:10px;padding:14px;">
+      <div style="font-weight:700;color:#00d4b8;margin-bottom:8px;">🟢 ACQUISTA (${toAdd.length})</div>
+      ${toAdd.map(s => `<div style="padding:4px 0;font-size:12px;">
+        <strong>${s.ticker}</strong> — €${perTicker.toFixed(0)} — Score: ${s.finalScore.toFixed(1)}
+        <span style="font-size:10px;color:var(--dim);"> | Stop: €${s.price ? (s.price*0.93).toFixed(2) : "--"}</span>
+      </div>`).join("")}
+    </div>`;
+  }
+
+  if (toSell.length > 0) {
+    rotHtml += `<div style="background:#ff6b6b11;border:1px solid #ff6b6b44;border-radius:10px;padding:14px;">
+      <div style="font-weight:700;color:#ff6b6b;margin-bottom:8px;">🔴 VENDI (${toSell.length})</div>
+      ${toSell.map(p => `<div style="padding:4px 0;font-size:12px;">
+        <strong>${p.ticker}</strong> — ${p.name}
+        <span style="font-size:10px;color:var(--dim);"> | Uscito dalla top ${prof.n}</span>
+      </div>`).join("")}
+    </div>`;
+  }
+
+  if (toKeep.length > 0) {
+    rotHtml += `<div style="background:#ffd23f11;border:1px solid #ffd23f44;border-radius:10px;padding:14px;">
+      <div style="font-weight:700;color:#ffd23f;margin-bottom:8px;">🟡 MANTIENI (${toKeep.length})</div>
+      ${toKeep.map(s => `<div style="padding:4px 0;font-size:12px;">
+        <strong>${s.ticker}</strong> — Score: ${s.finalScore.toFixed(1)}
+      </div>`).join("")}
+    </div>`;
+  }
+
+  rotHtml += `</div>`;
+  rotHtml += `<div style="margin-top:12px;font-size:11px;color:#ff6b6b;background:#ff6b6b11;padding:10px;border-radius:8px;">
+    🛑 <strong>STOP LOSS FISSO -7%</strong>: Esci immediatamente da qualsiasi posizione che scende del 7% dal prezzo di ingresso. Alert Telegram automatico.
+  </div>`;
+  document.getElementById("simRotation").innerHTML = rotHtml;
+}
+
+function renderSimHistory() {
+  const wrap = document.getElementById("simHistory");
+  if (!wrap) return;
+  if (simHistory.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>NESSUNA SIMULAZIONE ESEGUITA</p></div>`;
+    return;
+  }
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">DATA</th>
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">PROFILO</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">CAPITALE</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">SCORE MEDIO</th>
+      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">TITOLI</th>
+    </tr>
+    ${simHistory.map(h => `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;color:var(--dim);">${h.date}</td>
+      <td style="padding:8px;font-weight:700;">${h.profile}</td>
+      <td style="text-align:right;padding:8px;">€${h.capital?.toLocaleString("it-IT")}</td>
+      <td style="text-align:right;padding:8px;color:#ffd23f;font-weight:700;">${h.avgScore}</td>
+      <td style="padding:8px;font-size:10px;color:var(--dim);">${h.tickers?.join(", ")}</td>
+    </tr>`).join("")}
+  </table>`;
+  wrap.innerHTML = html;
+}
+
+
 const SECTORS = [
   { ticker: "XLK",  name: "Tecnologia",       color: "#6e5cff" },
   { ticker: "XLV",  name: "Salute",            color: "#00d4b8" },
@@ -1705,7 +2242,110 @@ const SECTORS = [
   { ticker: "XLC",  name: "Comunicazioni",     color: "#ff7700" }
 ];
 
-let chartSectors = null;
+let chartSectorRank = null;
+
+async function loadSectorRanking() {
+  const status = document.getElementById("sectorRankStatus");
+  const period = document.getElementById("rankPeriod")?.value || "ytd";
+  if (status) status.textContent = "⏳ Caricamento performance settori...";
+
+  // For YTD, fetch 1y and slice from Jan 1
+  const fetchPeriod = period === "ytd" ? "1y" : period;
+  const results = [];
+
+  for (const sector of SECTORS) {
+    try {
+      const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(sector.ticker)}&range=${fetchPeriod}&interval=1d`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const result = data?.chart?.result?.[0];
+      if (!result) continue;
+
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators?.quote?.[0]?.close || [];
+
+      let startIdx = 0;
+      if (period === "ytd") {
+        const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
+        startIdx = timestamps.findIndex(ts => ts >= startOfYear);
+        if (startIdx < 0) startIdx = 0;
+      }
+
+      const relevantCloses = closes.slice(startIdx).filter(v => v != null);
+      if (relevantCloses.length < 2) continue;
+
+      const firstClose = relevantCloses[0];
+      const lastClose = relevantCloses[relevantCloses.length - 1];
+      const perf = ((lastClose - firstClose) / firstClose * 100);
+
+      results.push({ ...sector, perf: parseFloat(perf.toFixed(2)) });
+    } catch(e) {}
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  if (status) status.textContent = "";
+
+  // Sort by performance descending
+  results.sort((a, b) => b.perf - a.perf);
+
+  const ctx = document.getElementById("chartSectorRank");
+  if (!ctx) return;
+  if (chartSectorRank) chartSectorRank.destroy();
+
+  const labels = results.map(r => r.name);
+  const values = results.map(r => r.perf);
+  const colors = results.map(r => r.perf >= 0 ? "#00c49a" : "#ff6b6b");
+  const borderColors = results.map(r => r.perf >= 0 ? "#00a882" : "#e05555");
+
+  // Period label
+  const periodLabel = { ytd: "YTD", "1y": "1 Anno", "6mo": "6 Mesi", "3mo": "3 Mesi", "1mo": "1 Mese" }[period] || period;
+
+  chartSectorRank = new Chart(ctx.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: `Performance ${periodLabel}`,
+        data: values,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x >= 0 ? "+" : ""}${ctx.parsed.x.toFixed(2)}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#555",
+            font: { size: 11 },
+            callback: v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%"
+          },
+          grid: { color: "#eee" },
+          border: { color: "#ddd" }
+        },
+        y: {
+          ticks: { color: "#333", font: { size: 11, weight: "600" } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+window.loadSectorRanking = loadSectorRanking;
+
+
 
 async function loadSectorChart() {
   const status = document.getElementById("sectorChartStatus");
@@ -2095,15 +2735,24 @@ async function fetchYahooData(ticker) {
   if (!result) throw new Error("Nessun dato");
 
   const meta = result.meta;
-  const closes = (result.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+  const quote = result.indicators?.quote?.[0] || {};
+  const closes = (quote.close || []).filter(v => v != null);
+  const highs = quote.high || [];
+  const lows = quote.low || [];
   const ath = closes.length ? Math.max(...closes, meta.regularMarketPrice) : meta.regularMarketPrice;
 
-  // Indicatori tecnici
+  // Indicatori tecnici base
   const sma21 = calcSMA(closes, 21);
   const sma100 = calcSMA(closes, 100);
   const sma200 = calcSMA(closes, 200);
   const rsi = calcRSI(closes, 14);
   const signal = getSignal(meta.regularMarketPrice, sma21, sma100, sma200, rsi);
+
+  // Indicatori avanzati
+  const macdData = calcMACD(closes);
+  const dpo = calcDPO(closes);
+  const ichimoku = calcIchimoku(closes, highs, lows);
+  const sentiment = calcSentiment(closes, highs, lows, rsi);
 
   // Fetch separato con range=1d per avere il prevClose corretto
   let prevClose = null;
@@ -2125,15 +2774,15 @@ async function fetchYahooData(ticker) {
     dayLow: meta.regularMarketDayLow,
     yearHigh: meta.fiftyTwoWeekHigh,
     yearLow: meta.fiftyTwoWeekLow,
-    ath, closes,
-    closesWithDates: (result.timestamp || []).map((ts, i) => ({ date: new Date(ts * 1000).toISOString().slice(0,10), close: (result.indicators?.quote?.[0]?.close || [])[i] })).filter(d => d.close != null),
+    ath, closes, highs, lows,
+    closesWithDates: (result.timestamp || []).map((ts, i) => ({ date: new Date(ts * 1000).toISOString().slice(0,10), close: (quote.close || [])[i] })).filter(d => d.close != null),
     name: meta.longName || meta.shortName || ticker,
-    // Fondamentali da meta
     pe: meta.trailingPE || null,
     eps: meta.epsTrailingTwelveMonths || null,
     marketCap: meta.marketCap || null,
-    // Tecnica
-    sma21, sma100, sma200, rsi, signal
+    sma21, sma100, sma200, rsi, signal,
+    macd: macdData.macd, macdSignal: macdData.signal,
+    dpo, ichimoku, sentiment
   };
 }
 
@@ -2164,6 +2813,22 @@ async function refreshAllPrices() {
       positions[i].sma200 = data.sma200;
       positions[i].rsi = data.rsi;
       positions[i].signal = data.signal;
+      positions[i].macd = data.macd;
+      positions[i].macdSignal = data.macdSignal;
+      positions[i].dpo = data.dpo;
+      positions[i].sentiment = data.sentiment;
+      positions[i].ichimoku = data.ichimoku;
+      // Calcola score composito
+      const f = fundamentals[positions[i].ticker] || {};
+      const scoreData = calcCompositeScore(data.closes, data.highs, data.lows, {
+        fairValueLabel: f.fairValueLabel,
+        analystUpside: f.analystUpside,
+        pe: f.pe || data.pe,
+        cashFlowLabel: f.cashFlowLabel
+      });
+      positions[i].compositeScore = scoreData.composite;
+      positions[i].techScore = scoreData.techScore;
+      positions[i].techRating = scoreData.techRating;
       positions[i].lastFetch = new Date().toISOString();
       positions[i].isManual = false;
       // Salva closes con date per grafico storico (solo in memoria, non in Supabase)
@@ -2296,8 +2961,40 @@ function renderTable() {
     const dayChangePct = (typeof p.dayChangePct === 'number' && isFinite(p.dayChangePct) && Math.abs(p.dayChangePct) < 25) ? p.dayChangePct : null;
     const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
-    // Target / Stop Loss badges
-    let targetBadge = "", stopBadge = "";
+    // Score composito badge
+    let scoreBadge = "";
+    if (p.compositeScore != null) {
+      const sc = p.compositeScore;
+      const scCol = sc >= 7 ? "#00d4b8" : sc >= 5 ? "#80ed99" : sc >= 3 ? "#ffd23f" : "#ff6b6b";
+      scoreBadge = `<span style="font-size:9px;font-weight:700;color:${scCol};background:${scCol}22;padding:2px 6px;border-radius:6px;margin-left:3px;" title="Score composito">⭐${sc.toFixed(1)}</span>`;
+    }
+
+    // RSI badge
+    let rsiBadge = "";
+    if (p.rsi != null) {
+      const rsiCol = p.rsi > 70 ? "#ff7700" : p.rsi < 30 ? "#00d4b8" : "#7d8aa3";
+      rsiBadge = `<span style="font-size:9px;color:${rsiCol};padding:2px 5px;border-radius:5px;background:${rsiCol}22;margin-left:3px;">RSI ${p.rsi.toFixed(0)}</span>`;
+    }
+
+    // Distanza dai minimi 52W
+    let dist52Badge = "";
+    if (p.yearLow && price) {
+      const dist52 = ((price - p.yearLow) / p.yearLow * 100);
+      const dCol = dist52 < 10 ? "#00d4b8" : dist52 < 30 ? "#80ed99" : dist52 > 80 ? "#ff6b6b" : "#7d8aa3";
+      dist52Badge = `<span style="font-size:9px;color:${dCol};padding:2px 5px;border-radius:5px;background:${dCol}22;margin-left:3px;" title="Distanza dal minimo 52W">+${dist52.toFixed(0)}% min</span>`;
+    }
+
+    // DPO badge
+    let dpoBadge = "";
+    if (p.dpo && p.dpo.text !== "--") {
+      dpoBadge = `<span style="font-size:9px;font-weight:700;color:${p.dpo.color};background:${p.dpo.color}22;padding:2px 5px;border-radius:5px;margin-left:3px;">DPO:${p.dpo.text}</span>`;
+    }
+
+    // Sentiment badge
+    let sentBadge = "";
+    if (p.sentiment) {
+      sentBadge = `<span style="font-size:9px;color:${p.sentiment.color};background:${p.sentiment.color}22;padding:2px 5px;border-radius:5px;margin-left:3px;">${p.sentiment.text}</span>`;
+    }
     if (p.target) {
       const hit = price >= p.target;
       const col = hit ? "#00d4b8" : "#7d8aa3";
@@ -2354,7 +3051,8 @@ function renderTable() {
       </td>
       <td>
         <div>${p.name}</div>
-        <div style="margin-top:3px;">${signalBadge}${fvBadge}${upsideBadge}${targetBadge}${stopBadge}</div>
+        <div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px;">${signalBadge}${scoreBadge}${fvBadge}${upsideBadge}${targetBadge}${stopBadge}</div>
+        <div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:2px;">${rsiBadge}${dist52Badge}${dpoBadge}${sentBadge}</div>
       </td>
       <td>${p.qty}</td>
       <td>${sym}${p.buyPrice.toFixed(2)}</td>
@@ -3022,6 +3720,31 @@ async function fetchWatchPrice(ticker) {
       }
     } catch(e2) {}
 
+    // Fetch 1Y history for RSI and composite score
+    try {
+      const urlY = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`;
+      const resY = await fetch(urlY);
+      if (resY.ok) {
+        const dataY = await resY.json();
+        const qY = dataY?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+        const closesY = (qY.close || []).filter(v => v != null);
+        const highsY = qY.high || [];
+        const lowsY = qY.low || [];
+        w._closes = closesY;
+        w._highs = highsY;
+        w._lows = lowsY;
+        if (closesY.length > 14) {
+          w.rsi = calcRSI(closesY, 14);
+          const sd = calcCompositeScore(closesY, highsY, lowsY, {
+            fairValueLabel: w.fairValueLabel, analystUpside: w.analystUpside,
+            pe: w.pe, cashFlowLabel: w.cashFlowLabel
+          });
+          w.compositeScore = sd.composite;
+          w.techRating = sd.techRating;
+        }
+      }
+    } catch(e3) {}
+
     renderWatchlist();
   } catch(e) {
     console.log(`Skip ${ticker}:`, e.message);
@@ -3060,15 +3783,18 @@ function renderWatchlist() {
     wrap.innerHTML = `<div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>`;
     return;
   }
-  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">
+  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
     <tr style="border-bottom:1px solid var(--line);">
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">TICKER</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VAR%</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W</th>
+      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">SCORE</th>
       <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">FAIR VALUE</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RIALZO</th>
       <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">CASH FLOW</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RSI</th>
+      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">+MIN52</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P/E</th>
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE</th>
       <th style="padding:4px;"></th>
@@ -3133,11 +3859,22 @@ function renderWatchlist() {
       <td style="text-align:right;padding:9px 8px;font-size:10px;color:var(--dim);">
         ${w.low52 != null ? sym+w.low52.toFixed(2)+" / "+sym+w.high52.toFixed(2) : "--"}
       </td>
+      <td style="text-align:center;padding:9px 8px;">
+        ${w.compositeScore != null 
+          ? `<span style="font-weight:800;font-size:14px;color:${w.compositeScore >= 7 ? '#00d4b8' : w.compositeScore >= 5 ? '#80ed99' : w.compositeScore >= 3 ? '#ffd23f' : '#ff6b6b'};">${w.compositeScore.toFixed(1)}</span>`
+          : "--"}
+      </td>
       <td style="text-align:center;padding:9px 8px;">${fvBadge}</td>
       <td style="text-align:right;padding:9px 8px;">${upsideTxt}</td>
       <td style="text-align:center;padding:9px 8px;">${cfBadge}</td>
+      <td style="text-align:right;padding:9px 8px;font-size:11px;color:${w.rsi > 70 ? '#ff7700' : w.rsi < 30 ? '#00d4b8' : 'var(--dim)'};">
+        ${w.rsi != null ? w.rsi.toFixed(0) : "--"}
+      </td>
       <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
-        ${w.pe != null ? w.pe+"x" : "--"}
+        ${w.low52 && w.price ? "+" + ((w.price - w.low52) / w.low52 * 100).toFixed(0) + "%" : "--"}
+      </td>
+      <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
+        ${w.pe != null ? w.pe + "x" : "--"}
       </td>
       <td style="padding:9px 8px;">${noteText}${alertText}${supportText}</td>
       <td style="padding:9px 4px;white-space:nowrap;">
@@ -3224,6 +3961,8 @@ function renderAll() {
   renderRebalance();
   renderModelPortfolios();
   renderStats();
+  renderRisk();
+  renderSimHistory();
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────
@@ -3265,6 +4004,7 @@ document.getElementById("btnLogout").addEventListener("click", () => {
     }
   } catch(e) {}
 })();
+
 
 
 
