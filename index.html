@@ -1382,7 +1382,8 @@ function switchTab(name) {
     setTimeout(() => { renderCharts(); renderCapitalChart(); }, 50);
   }
   if (name === "Mercati") {
-    setTimeout(() => { loadSectorChart(); loadSectorRanking(); }, 300);
+    setTimeout(() => loadSectorRanking(), 300);
+    setTimeout(() => loadSectorChart(), 500);
   }
 }
 window.switchTab = switchTab;
@@ -2242,6 +2243,20 @@ const SECTORS = [
   { ticker: "XLC",  name: "Comunicazioni",     color: "#ff7700" }
 ];
 
+let sectorDataCache = {}; // cache ticker -> data
+
+async function fetchSectorData(ticker, period) {
+  const key = ticker + "_" + period;
+  if (sectorDataCache[key]) return sectorDataCache[key];
+  const fetchPeriod = period === "ytd" ? "1y" : period;
+  const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
+  const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=${fetchPeriod}&interval=${interval}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  sectorDataCache[key] = data;
+  return data;
+}
+
 let chartSectorRank = null;
 
 async function loadSectorRanking() {
@@ -2255,29 +2270,20 @@ async function loadSectorRanking() {
 
   for (const sector of SECTORS) {
     try {
-      const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(sector.ticker)}&range=${fetchPeriod}&interval=1d`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await fetchSectorData(sector.ticker, period);
       const result = data?.chart?.result?.[0];
       if (!result) continue;
-
       const timestamps = result.timestamp || [];
       const closes = result.indicators?.quote?.[0]?.close || [];
-
       let startIdx = 0;
       if (period === "ytd") {
         const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime() / 1000;
         startIdx = timestamps.findIndex(ts => ts >= startOfYear);
         if (startIdx < 0) startIdx = 0;
       }
-
       const relevantCloses = closes.slice(startIdx).filter(v => v != null);
       if (relevantCloses.length < 2) continue;
-
-      const firstClose = relevantCloses[0];
-      const lastClose = relevantCloses[relevantCloses.length - 1];
-      const perf = ((lastClose - firstClose) / firstClose * 100);
-
+      const perf = ((relevantCloses[relevantCloses.length-1] - relevantCloses[0]) / relevantCloses[0] * 100);
       results.push({ ...sector, perf: parseFloat(perf.toFixed(2)) });
     } catch(e) {}
     await new Promise(r => setTimeout(r, 200));
@@ -2351,7 +2357,8 @@ async function loadSectorChart() {
   const status = document.getElementById("sectorChartStatus");
   const period = document.getElementById("sectorPeriod")?.value || "1d";
   const interval = period === "1d" ? "5m" : period === "5d" ? "15m" : "1d";
-  if (status) status.textContent = "⏳ Caricamento dati settori...";
+  if (status) status.textContent = "⏳ Caricamento...";
+  sectorDataCache = {}; // clear cache on new period
 
   const datasets = [];
   const labels = [];
@@ -2359,9 +2366,7 @@ async function loadSectorChart() {
 
   for (const sector of SECTORS) {
     try {
-      const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(sector.ticker)}&range=${period}&interval=${interval}`;
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await fetchSectorData(sector.ticker, period);
       const result = data?.chart?.result?.[0];
       if (!result) continue;
       const timestamps = result.timestamp || [];
@@ -2389,7 +2394,7 @@ async function loadSectorChart() {
         spanGaps: true
       });
     } catch(e) { console.log("Sector skip:", sector.ticker); }
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 200));
   }
 
   if (status) status.textContent = "";
