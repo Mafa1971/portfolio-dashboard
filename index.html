@@ -987,22 +987,17 @@ function applySchedaColors() {
 }
 
 
-// ── SUPABASE CONFIG ───────────────────────────────────────────────────
-const SUPA_URL = "https://bvzgudqbirlqnotaqame.supabase.co";
-const SUPA_KEY = "sb_publishable_6JQK_8MZHBiEBVnq0ei3cQ_qbiuc5RO";
-
+// ── SUPABASE via Netlify proxy (evita blocchi CORS/DNS) ──────────────
 async function sbFetch(path, method = "GET", body = null) {
   const opts = {
     method,
     headers: {
-      "apikey": SUPA_KEY,
-      "Authorization": "Bearer " + SUPA_KEY,
       "Content-Type": "application/json",
       "Prefer": method === "POST" ? "resolution=merge-duplicates,return=minimal" : "return=representation"
     }
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(SUPA_URL + "/rest/v1/" + path, opts);
+  const res = await fetch(`/.netlify/functions/supabase?path=${encodeURIComponent(path)}`, opts);
   if (!res.ok) {
     const err = await res.text();
     throw new Error(err);
