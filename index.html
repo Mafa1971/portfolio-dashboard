@@ -2632,6 +2632,8 @@ function renderTable() {
     const dayColor = dayChangePct == null ? "var(--dim)" : dayChangePct >= 0 ? "#00d4b8" : "#ff6b6b";
 
     // Score composito badge
+    let targetBadge = "";
+    let stopBadge = "";
     let scoreBadge = "";
     if (p.compositeScore != null) {
       const sc = p.compositeScore;
