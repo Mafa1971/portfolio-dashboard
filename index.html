@@ -3181,13 +3181,16 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         const iIdx = (name) => headers.findIndex(h => h.includes(name));
         
         // Column indices
-        const colNome = iIdx("nome") !== -1 ? iIdx("nome") : 2;
-        const colTicker = iIdx("ticker") !== -1 ? iIdx("ticker") : 3;
-        const colFairLabel = iIdx("fair value") !== -1 ? iIdx("fair value") : -1;
-        const colAnalystRialzo = iIdx("rialzo") !== -1 ? iIdx("rialzo") : -1;
-        const colCashLabel = iIdx("flusso di cassa") !== -1 ? iIdx("flusso di cassa") : -1;
-        const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : iIdx("p/e");
-        const colMktCap = iIdx("capitaliz") !== -1 ? iIdx("capitaliz") : iIdx("market cap");
+        const colNome = iIdx("nome") !== -1 ? iIdx("nome") : 0;
+        // Full Ticker in col B (index 1) ha precedenza su Ticker col C
+        const colTicker = iIdx("full ticker") !== -1 ? iIdx("full ticker") : (iIdx("ticker") !== -1 ? iIdx("ticker") : 1);
+        // Sector in col C (index 2)
+        const colSector = iIdx("sector") !== -1 ? iIdx("sector") : (iIdx("settore") !== -1 ? iIdx("settore") : 2);
+        const colFairLabel = iIdx("fair value") !== -1 ? iIdx("fair value") : 7;
+        const colAnalystRialzo = iIdx("rialzo") !== -1 ? iIdx("rialzo") : 6;
+        const colCashLabel = iIdx("flusso di cassa") !== -1 ? iIdx("flusso di cassa") : 5;
+        const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : (iIdx("p/e") !== -1 ? iIdx("p/e") : 17);
+        const colMktCap = iIdx("capitaliz") !== -1 ? iIdx("capitaliz") : (iIdx("market cap") !== -1 ? iIdx("market cap") : 11);
         const colPiotroski = iIdx("piotroski") !== -1 ? iIdx("piotroski") : -1;
         const colDebtEq = iIdx("debito / equity") !== -1 ? iIdx("debito / equity") : -1;
         const colRSI = iIdx("forza relativa") !== -1 ? iIdx("forza relativa") : -1;
@@ -3195,7 +3198,7 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         // Finviz format detection
         const isFinviz = headers.includes("company") || headers.includes("market cap (b)");
         
-        data.slice(headerRowIdx + 2).forEach(row => {
+        data.slice(headerRowIdx + 1).forEach(row => {
           if (!row) return;
           const ticker = row[colTicker];
           if (!ticker || String(ticker).trim() === "") return;
@@ -3213,16 +3216,18 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
             });
           } else {
             // New format with fair value labels etc.
-            const analystRialzo = colAnalystRialzo !== -1 && row[colAnalystRialzo] != null 
-              ? parseFloat((row[colAnalystRialzo] * 100).toFixed(1)) : null;
+            const analystRaw = colAnalystRialzo !== -1 && row[colAnalystRialzo] != null 
+              ? parseFloat(row[colAnalystRialzo]) : null;
+            const analystRialzo = analystRaw != null 
+              ? parseFloat((analystRaw * (analystRaw < 1 ? 100 : 1)).toFixed(1)) : null;
             rows.push({
               ticker: tickerStr,
               name: row[colNome] || tickerStr,
-              sector: "Altro",
+              sector: colSector !== -1 && row[colSector] ? String(row[colSector]) : "Altro",
               fairValueLabel: colFairLabel !== -1 ? row[colFairLabel] || null : null,
               analystUpside: analystRialzo,
               cashFlowLabel: colCashLabel !== -1 ? row[colCashLabel] || null : null,
-              pe: colPE !== -1 && row[colPE] != null ? parseFloat(row[colPE].toFixed(1)) : null,
+              pe: colPE !== -1 && row[colPE] != null ? parseFloat(parseFloat(row[colPE]).toFixed(1)) : null,
               marketCap: colMktCap !== -1 && row[colMktCap] != null ? parseFloat((row[colMktCap]/1e9).toFixed(2)) : null,
               piotroski: colPiotroski !== -1 ? row[colPiotroski] || null : null,
               debtEquity: colDebtEq !== -1 && row[colDebtEq] != null ? parseFloat(row[colDebtEq].toFixed(2)) : null,
