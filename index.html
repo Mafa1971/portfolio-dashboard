@@ -3182,18 +3182,18 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         
         // Column indices
         const colNome = iIdx("nome") !== -1 ? iIdx("nome") : 0;
-        // Full Ticker in col B (index 1) ha precedenza su Ticker col C
         const colTicker = iIdx("full ticker") !== -1 ? iIdx("full ticker") : (iIdx("ticker") !== -1 ? iIdx("ticker") : 1);
-        // Sector in col C (index 2)
         const colSector = iIdx("sector") !== -1 ? iIdx("sector") : (iIdx("settore") !== -1 ? iIdx("settore") : 2);
-        const colFairLabel = iIdx("fair value") !== -1 ? iIdx("fair value") : 7;
-        const colAnalystRialzo = iIdx("rialzo") !== -1 ? iIdx("rialzo") : 6;
-        const colCashLabel = iIdx("flusso di cassa") !== -1 ? iIdx("flusso di cassa") : 5;
-        const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : (iIdx("p/e") !== -1 ? iIdx("p/e") : 17);
+        const colCashLabel = iIdx("flusso di cassa") !== -1 ? iIdx("flusso di cassa") : (iIdx("etichetta del flusso") !== -1 ? iIdx("etichetta del flusso") : 5);
+        const colAnalystRialzo = iIdx("rialzo") !== -1 ? iIdx("rialzo") : (iIdx("target analisti") !== -1 ? iIdx("target analisti") : 6);
+        const colFairLabel = iIdx("etichetta fair value") !== -1 ? iIdx("etichetta fair value") : (iIdx("fair value") !== -1 ? iIdx("fair value") : 7);
+        const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : (iIdx("ratio prezzo") !== -1 ? iIdx("ratio prezzo") : (iIdx("p/e") !== -1 ? iIdx("p/e") : 17));
         const colMktCap = iIdx("capitaliz") !== -1 ? iIdx("capitaliz") : (iIdx("market cap") !== -1 ? iIdx("market cap") : 11);
         const colPiotroski = iIdx("piotroski") !== -1 ? iIdx("piotroski") : -1;
         const colDebtEq = iIdx("debito / equity") !== -1 ? iIdx("debito / equity") : -1;
         const colRSI = iIdx("forza relativa") !== -1 ? iIdx("forza relativa") : -1;
+        console.log("WL Import headers:", headers);
+        console.log("Cols:", {colTicker, colNome, colSector, colFairLabel, colAnalystRialzo, colCashLabel, colPE});
         
         // Finviz format detection
         const isFinviz = headers.includes("company") || headers.includes("market cap (b)");
