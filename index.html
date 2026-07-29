@@ -3753,6 +3753,32 @@ window.openAIAnalysis = async function(ticker) {
   const fund = fundamentals[ticker] || {};
   aiCurrentData = { ticker, pos, wl, fund };
 
+  // Calculate DPO and Sentiment if missing using cached data
+  if (wl && (!wl.dpo || !wl.sentiment) && wl._closes?.length > 30) {
+    wl.dpo = calcDPO(wl._closes);
+    wl.sentiment = calcSentiment(wl._closes, wl._highs||[], wl._lows||[], wl.rsi);
+  }
+
+  // If watchlist item has no cached closes, fetch now
+  if (wl && (!wl._closes || wl._closes.length < 30)) {
+    try {
+      const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const q = data?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+      wl._closes = (q.close||[]).filter(v=>v!=null);
+      wl._highs = q.high||[];
+      wl._lows = q.low||[];
+      if (wl._closes.length > 30) {
+        wl.dpo = calcDPO(wl._closes);
+        wl.sentiment = calcSentiment(wl._closes, wl._highs, wl._lows, wl.rsi);
+        if (!wl.rsi) wl.rsi = calcRSI(wl._closes, 14);
+        // Re-render tech data with fresh values
+        setTimeout(() => renderAITechData(pos, wl, fund), 100);
+      }
+    } catch(e) {}
+  }
+
   // Set title
   const name = pos?.name || wl?.name || ticker;
   document.getElementById("aiModalTitle").textContent = `🤖 ${ticker} — ${name}`;
