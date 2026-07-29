@@ -879,7 +879,10 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 
     <!-- CHAT AI -->
     <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
-      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;">🤖 Consulente AI — Chiedi un parere</div>
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;">
+        <span>🤖 Consulente AI — Chiedi un parere</span>
+        <button onclick="document.getElementById('aiChatHistory').innerHTML='';aiChatMessages=[];" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:10px;letter-spacing:1px;">↺ RESET CHAT</button>
+      </div>
       <div id="aiChatHistory" style="max-height:220px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div>
       <div style="display:flex;gap:8px;">
         <input id="aiQuestion" type="text" placeholder="Es: Cosa pensi di questo titolo? È un buon momento per entrare?" 
@@ -3781,43 +3784,26 @@ function loadAIChart(ticker) {
   const container = document.getElementById("aiChartContainer");
   container.innerHTML = "";
 
-  // Use TradingView mini chart widget
   const tvTicker = ticker.endsWith(".MI")
     ? "MIL:" + ticker.replace(".MI","")
     : ticker.includes(".")
     ? ticker
     : "NASDAQ:" + ticker;
 
-  const div = document.createElement("div");
-  div.className = "tradingview-widget-container";
-  div.style.height = "100%";
-  div.innerHTML = `<div class="tradingview-widget-container__widget" style="height:100%;"></div>`;
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvTicker)}`;
 
-  const script = document.createElement("script");
-  script.type = "text/javascript";
-  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-  script.async = true;
-  script.textContent = JSON.stringify({
-    autosize: true,
-    symbol: tvTicker,
-    interval: "D",
-    timezone: "Europe/Rome",
-    theme: "dark",
-    style: "1",
-    locale: "it",
-    backgroundColor: "rgba(17,24,39,1)",
-    gridColor: "rgba(30,45,69,0.5)",
-    hide_top_toolbar: false,
-    allow_symbol_change: false,
-    save_image: false,
-    studies: ["STD;SMA","STD;Volume"],
-    show_popup_button: true,
-    popup_width: "1200",
-    popup_height: "700"
-  });
-
-  div.appendChild(script);
-  container.appendChild(div);
+  container.innerHTML = `
+    <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--panel2);border-radius:10px;">
+      <div style="font-size:13px;color:var(--dim);text-align:center;">
+        Il grafico interattivo richiede TradingView.<br>
+        <span style="font-size:11px;">Apri il grafico completo con tutti gli indicatori nella tua sessione TradingView.</span>
+      </div>
+      <a href="${tvUrl}" target="_blank" 
+        style="background:linear-gradient(135deg,#1a73e8,#4fa3ff);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:8px;">
+        📈 Apri ${ticker} su TradingView
+      </a>
+      <div style="font-size:10px;color:var(--dim);">Si apre in una nuova tab — se sei già loggato accedi al tuo account</div>
+    </div>`;
 }
 
 function renderAITechData(pos, wl, fund) {
