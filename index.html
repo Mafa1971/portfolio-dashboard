@@ -3908,9 +3908,11 @@ function renderAITechData(pos, wl, fund) {
   const score = pos?.compositeScore || wl?.compositeScore;
   const signal = pos?.signal?.label || wl?.techRating || "--";
   const signalCol = pos?.signal?.color || "#7d8aa3";
-  const fv = fund?.fairValueLabel || wl?.fairValueLabel || "--";
-  const upside = fund?.analystUpside || wl?.analystUpside;
-  const pe = fund?.pe || wl?.pe;
+  // Also check watchlist by ticker for fundamentals
+  const wlByTicker = watchlist?.find(w => w.ticker === (pos?.ticker || wl?.ticker));
+  const fv = fund?.fairValueLabel || wl?.fairValueLabel || wlByTicker?.fairValueLabel || "--";
+  const upside = fund?.analystUpside ?? wl?.analystUpside ?? wlByTicker?.analystUpside ?? null;
+  const pe = fund?.pe ?? wl?.pe ?? wlByTicker?.pe ?? null;
   const dpo = pos?.dpo?.text || wl?.dpo?.text || "--";
   const sent = pos?.sentiment?.text || wl?.sentiment?.text || "--";
 
@@ -3979,14 +3981,15 @@ window.askAI = function() {
   const signal = pos?.signal?.label || wl?.techRating;
   const dpo = pos?.dpo?.text;
   const sentiment = pos?.sentiment?.text;
-  const fv = fund?.fairValueLabel || wl?.fairValueLabel;
-  const upside = fund?.analystUpside || wl?.analystUpside;
-  const pe = fund?.pe || wl?.pe;
+  const wlByTicker2 = watchlist?.find(w => w.ticker === (pos?.ticker || wl?.ticker));
+  const fv = fund?.fairValueLabel || wl?.fairValueLabel || wlByTicker2?.fairValueLabel;
+  const upside = fund?.analystUpside ?? wl?.analystUpside ?? wlByTicker2?.analystUpside ?? null;
+  const pe = fund?.pe ?? wl?.pe ?? wlByTicker2?.pe ?? null;
   const price = pos?.currentPrice || wl?.current_price_ref;
   const sma50 = pos?.sma50;
   const sma200 = pos?.sma200;
   const stopLoss = pos?.stopLoss;
-  const cf = fund?.cashFlowLabel || wl?.cashFlowLabel;
+  const cf = fund?.cashFlowLabel || wl?.cashFlowLabel || wlByTicker2?.cashFlowLabel;
 
   // Generate rule-based analysis
   const answer = generateAIAnalysis(ticker, { score, rsi, signal, dpo, sentiment, fv, upside, pe, price, sma50, sma200, stopLoss, cf, pos, wl }, question);
