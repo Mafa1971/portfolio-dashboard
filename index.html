@@ -3808,7 +3808,9 @@ async function loadAIChart(ticker) {
     </div>`;
 
   try {
-    const data = await fetchYahoo(ticker, "6mo", "1d");
+    const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=6mo&interval=1d`;
+    const res = await fetch(url);
+    const data = await res.json();
     const result = data?.chart?.result?.[0];
     const timestamps = result?.timestamp || [];
     const closes = (result?.indicators?.quote?.[0]?.close || []);
