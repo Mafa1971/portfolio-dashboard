@@ -857,9 +857,56 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
 </div>
 
+<!-- MODAL ANALISI AI ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalAIOverlay">
+  <div class="modal" style="max-width:780px;max-height:92vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <h3 id="aiModalTitle" style="font-size:18px;">🤖 Analisi AI</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="aiScoreBadge" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:6px;"></span>
+        <button onclick="document.getElementById('modalAIOverlay').classList.remove('show')" 
+          style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:20px;">✕</button>
+      </div>
+    </div>
+
+    <!-- GRAFICO -->
+    <div style="height:400px;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line);">
+      <div id="aiChartContainer" style="height:100%;"></div>
+    </div>
+
+    <!-- DATI TECNICI -->
+    <div id="aiTechData" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px;"></div>
+
+    <!-- CHAT AI -->
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;">🤖 Consulente AI — Chiedi un parere</div>
+      <div id="aiChatHistory" style="max-height:220px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;"></div>
+      <div style="display:flex;gap:8px;">
+        <input id="aiQuestion" type="text" placeholder="Es: Cosa pensi di questo titolo? È un buon momento per entrare?" 
+          style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:10px 12px;border-radius:8px;font-family:'Manrope',sans-serif;font-size:13px;outline:none;"
+          onkeydown="if(event.key==='Enter')askAI()">
+        <button onclick="askAI()" class="btn primary" style="white-space:nowrap;">Chiedi →</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button onclick="setQ('Analisi tecnica completa del titolo')" class="btn ghost" style="font-size:10px;padding:4px 10px;">📊 Analisi Tecnica</button>
+        <button onclick="setQ('È un buon momento per entrare in posizione?')" class="btn ghost" style="font-size:10px;padding:4px 10px;">🎯 Entrare ora?</button>
+        <button onclick="setQ('Quali sono i rischi principali?')" class="btn ghost" style="font-size:10px;padding:4px 10px;">⚠ Rischi</button>
+        <button onclick="setQ('Confronta con il benchmark di settore')" class="btn ghost" style="font-size:10px;padding:4px 10px;">📈 vs Benchmark</button>
+      </div>
+    </div>
+
+    <!-- STORICO ANALISI -->
+    <div>
+      <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">📅 Storico Analisi Salvate</div>
+      <div id="aiHistoryList" style="max-height:150px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- end appContent -->
 
 <script>
+
 
 
 
@@ -2737,6 +2784,7 @@ function renderTable() {
       <td class="row-actions">
         <button class="icon-btn" onclick="openEditPosition('${p.id}')" title="Modifica" style="color:var(--blue)">✎</button>
         <button class="icon-btn" onclick="openTargetModal('${p.id}')" title="Target & Stop Loss" style="color:#ffd23f">🎯</button>
+        <button class="icon-btn" onclick="openAIAnalysis('${p.ticker}')" title="Analisi AI" style="color:#00d4b8">🤖</button>
         <button class="icon-btn" onclick="openClosePosition('${p.id}')" title="Chiudi posizione" style="color:var(--grad2)">⊟</button>
         <button class="icon-btn" onclick="deletePosition('${p.id}')" title="Elimina">✕</button>
       </td>
@@ -3552,6 +3600,7 @@ function renderWatchlist() {
       <td style="padding:9px 4px;white-space:nowrap;">
         <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica" style="color:var(--blue);">✎</button>
         <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">BUY</button>
+        <button class="icon-btn" onclick="openAIAnalysis('${w.ticker}')" title="Analisi AI" style="color:#00d4b8">🤖</button>
         <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
       </td>
     </tr>`;
@@ -3680,6 +3729,256 @@ document.getElementById("btnLogout").addEventListener("click", () => {
 
 
 
+
+
+// ── AI ANALISI MODAL ──────────────────────────────────────────────────
+let aiCurrentTicker = null;
+let aiCurrentData = null;
+let aiChatMessages = [];
+
+window.openAIAnalysis = async function(ticker) {
+  aiCurrentTicker = ticker;
+  aiChatMessages = [];
+
+  // Find data from positions or watchlist
+  const pos = positions.find(p => p.ticker === ticker);
+  const wl = watchlist.find(w => w.ticker === ticker);
+  const fund = fundamentals[ticker] || {};
+  aiCurrentData = { ticker, pos, wl, fund };
+
+  // Set title
+  const name = pos?.name || wl?.name || ticker;
+  document.getElementById("aiModalTitle").textContent = `🤖 ${ticker} — ${name}`;
+
+  // Score badge
+  const score = pos?.compositeScore || wl?.compositeScore;
+  const badge = document.getElementById("aiScoreBadge");
+  if (score) {
+    const col = score>=7?"#00d4b8":score>=5?"#80ed99":score>=3?"#ffd23f":"#ff6b6b";
+    badge.textContent = `Score: ${score.toFixed(1)}`;
+    badge.style.background = col+"22";
+    badge.style.color = col;
+  } else { badge.textContent = ""; }
+
+  // Load chart
+  loadAIChart(ticker);
+
+  // Load tech data
+  renderAITechData(pos, wl, fund);
+
+  // Load history
+  await loadAIHistory(ticker);
+
+  // Reset chat
+  document.getElementById("aiChatHistory").innerHTML = "";
+  document.getElementById("aiQuestion").value = "";
+
+  document.getElementById("modalAIOverlay").classList.add("show");
+};
+window.openAIAnalysis = openAIAnalysis;
+
+function loadAIChart(ticker) {
+  const container = document.getElementById("aiChartContainer");
+  container.innerHTML = "";
+
+  // Use TradingView mini chart widget
+  const tvTicker = ticker.endsWith(".MI")
+    ? "MIL:" + ticker.replace(".MI","")
+    : ticker.includes(".")
+    ? ticker
+    : "NASDAQ:" + ticker;
+
+  const div = document.createElement("div");
+  div.className = "tradingview-widget-container";
+  div.style.height = "100%";
+  div.innerHTML = `<div class="tradingview-widget-container__widget" style="height:100%;"></div>`;
+
+  const script = document.createElement("script");
+  script.type = "text/javascript";
+  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+  script.async = true;
+  script.textContent = JSON.stringify({
+    autosize: true,
+    symbol: tvTicker,
+    interval: "D",
+    timezone: "Europe/Rome",
+    theme: "dark",
+    style: "1",
+    locale: "it",
+    backgroundColor: "rgba(17,24,39,1)",
+    gridColor: "rgba(30,45,69,0.5)",
+    hide_top_toolbar: false,
+    allow_symbol_change: false,
+    save_image: false,
+    studies: ["STD;SMA","STD;Volume"],
+    show_popup_button: true,
+    popup_width: "1200",
+    popup_height: "700"
+  });
+
+  div.appendChild(script);
+  container.appendChild(div);
+}
+
+function renderAITechData(pos, wl, fund) {
+  const wrap = document.getElementById("aiTechData");
+  if (!wrap) return;
+
+  const rsi = pos?.rsi || wl?.rsi;
+  const score = pos?.compositeScore || wl?.compositeScore;
+  const signal = pos?.signal?.label || wl?.techRating || "--";
+  const signalCol = pos?.signal?.color || "#7d8aa3";
+  const fv = fund?.fairValueLabel || wl?.fairValueLabel || "--";
+  const upside = fund?.analystUpside || wl?.analystUpside;
+  const pe = fund?.pe || wl?.pe;
+  const dpo = pos?.dpo?.text || "--";
+  const sent = pos?.sentiment?.text || "--";
+
+  const items = [
+    { l: "Score", v: score ? score.toFixed(1) : "--", col: score>=7?"#00d4b8":score>=5?"#80ed99":score>=3?"#ffd23f":"#ff6b6b" },
+    { l: "Segnale", v: signal, col: signalCol },
+    { l: "RSI", v: rsi ? rsi.toFixed(0) : "--", col: rsi>70?"#ff7700":rsi<30?"#00d4b8":"var(--dim)" },
+    { l: "DPO", v: dpo, col: dpo==="Forte"?"#00d4b8":dpo==="Recupero"?"#80ed99":"var(--dim)" },
+    { l: "Sentiment", v: sent, col: sent==="Risk-On"?"#00d4b8":"var(--dim)" },
+    { l: "Fair Value", v: fv, col: fv==="Sottovalutato"?"#00d4b8":fv==="Sopravvalutato"?"#ff6b6b":"#ffd23f" },
+    { l: "Rialzo Anal.", v: upside ? (upside>0?"+":"")+upside+"%" : "--", col: upside>0?"#00d4b8":"#ff6b6b" },
+    { l: "P/E", v: pe ? pe+"x" : "--", col: pe&&pe<15?"#00d4b8":pe&&pe>30?"#ff6b6b":"var(--dim)" },
+  ];
+
+  wrap.innerHTML = items.map(i => `
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;">
+      <div style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">${i.l}</div>
+      <div style="font-size:14px;font-weight:700;color:${i.col};">${i.v}</div>
+    </div>`
+  ).join("");
+}
+
+async function loadAIHistory(ticker) {
+  const wrap = document.getElementById("aiHistoryList");
+  if (!wrap) return;
+  try {
+    const data = await sbFetch(`ai_analysis?select=*&user_id=eq.${currentUser}&ticker=eq.${ticker}&order=created_at.desc&limit=5`);
+    if (!data || data.length === 0) {
+      wrap.innerHTML = `<div style="font-size:11px;color:var(--dim);">Nessuna analisi salvata per ${ticker}</div>`;
+      return;
+    }
+    wrap.innerHTML = data.map(a => `
+      <div style="padding:8px;border-bottom:1px solid var(--line);font-size:11px;">
+        <div style="color:var(--dim);margin-bottom:4px;">${new Date(a.created_at).toLocaleString("it-IT")} | Score: ${a.score||"--"} | RSI: ${a.rsi||"--"}</div>
+        <div style="color:var(--txt);margin-bottom:2px;font-weight:700;">❓ ${a.question||""}</div>
+        <div style="color:var(--dim);">🤖 ${a.answer ? a.answer.slice(0,150)+(a.answer.length>150?"...":"") : ""}</div>
+      </div>`
+    ).join("");
+  } catch(e) {
+    wrap.innerHTML = `<div style="font-size:11px;color:var(--dim);">Errore caricamento storico</div>`;
+  }
+}
+
+window.setQ = function(q) {
+  document.getElementById("aiQuestion").value = q;
+  document.getElementById("aiQuestion").focus();
+};
+
+window.askAI = async function() {
+  const question = document.getElementById("aiQuestion").value.trim();
+  if (!question) return;
+
+  const chatEl = document.getElementById("aiChatHistory");
+  const ticker = aiCurrentTicker;
+  const pos = aiCurrentData?.pos;
+  const wl = aiCurrentData?.wl;
+  const fund = aiCurrentData?.fund || {};
+
+  // Add user message
+  chatEl.innerHTML += `<div style="align-self:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px 10px 0 10px;padding:8px 12px;font-size:12px;max-width:80%;">${question}</div>`;
+  chatEl.innerHTML += `<div id="aiLoading" style="align-self:flex-start;color:var(--dim);font-size:11px;">🤖 Analisi in corso...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  document.getElementById("aiQuestion").value = "";
+
+  // Build context for AI
+  const score = pos?.compositeScore || wl?.compositeScore;
+  const rsi = pos?.rsi || wl?.rsi;
+  const signal = pos?.signal?.label || wl?.techRating;
+  const dpo = pos?.dpo?.text;
+  const sentiment = pos?.sentiment?.text;
+  const fv = fund?.fairValueLabel || wl?.fairValueLabel;
+  const upside = fund?.analystUpside || wl?.analystUpside;
+  const pe = fund?.pe || wl?.pe;
+  const price = pos?.currentPrice || wl?.current_price_ref;
+  const sma50 = pos?.sma50;
+  const sma200 = pos?.sma200;
+  const stopLoss = pos?.stopLoss;
+
+  const systemPrompt = `Sei un esperto analista finanziario che consulta un investitore sulla sua dashboard di trading FMP Trading. 
+Rispondi in italiano, in modo conciso e diretto (max 200 parole). 
+Non sei un consulente finanziario ufficiale — dai opinioni basate sui dati tecnici e fondamentali.
+Usa emoji per rendere la risposta più leggibile.`;
+
+  const userPrompt = `Titolo: ${ticker} ${pos ? `(in portafoglio a €${pos.buyPrice?.toFixed(2)})` : "(in watchlist)"}
+
+Dati tecnici disponibili:
+- Score composito: ${score?.toFixed(1) || "N/D"}/10
+- Segnale: ${signal || "N/D"}
+- RSI: ${rsi?.toFixed(0) || "N/D"}
+- DPO: ${dpo || "N/D"}
+- Sentiment: ${sentiment || "N/D"}
+- SMA50: ${sma50?.toFixed(2) || "N/D"}
+- SMA200: ${sma200?.toFixed(2) || "N/D"}
+- Prezzo attuale: ${price ? "€"+price.toFixed(2) : "N/D"}
+${stopLoss ? `- Stop Loss: €${stopLoss.toFixed(2)}` : ""}
+
+Dati fondamentali:
+- Fair Value: ${fv || "N/D"}
+- Rialzo Target Analisti: ${upside ? upside+"%" : "N/D"}
+- P/E: ${pe ? pe+"x" : "N/D"}
+- Cash Flow: ${fund?.cashFlowLabel || wl?.cashFlowLabel || "N/D"}
+
+Domanda dell'investitore: ${question}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }]
+      })
+    });
+
+    const data = await response.json();
+    const answer = data.content?.[0]?.text || "Nessuna risposta disponibile.";
+
+    // Remove loading
+    document.getElementById("aiLoading")?.remove();
+
+    // Add AI response
+    chatEl.innerHTML += `<div style="align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px 10px 10px 0;padding:10px 12px;font-size:12px;max-width:90%;line-height:1.5;">${answer.replace(/\n/g,"<br>")}</div>`;
+    chatEl.scrollTop = chatEl.scrollHeight;
+
+    // Save to Supabase
+    try {
+      await sbFetch("ai_analysis", "POST", [{
+        id: "ai_"+Date.now()+"_"+ticker,
+        user_id: currentUser,
+        ticker,
+        question,
+        answer,
+        score: score || null,
+        rsi: rsi || null,
+        signal: signal || null,
+        fair_value: fv || null
+      }]);
+      // Reload history
+      await loadAIHistory(ticker);
+    } catch(e) {}
+
+  } catch(e) {
+    document.getElementById("aiLoading")?.remove();
+    chatEl.innerHTML += `<div style="color:#ff6b6b;font-size:11px;">Errore: ${e.message}</div>`;
+  }
+};
 
 </script>
 </body>
