@@ -623,6 +623,41 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         </select>
       </div>
     </div>
+    <!-- FONDAMENTALI -->
+    <div style="font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin:12px 0 8px;">Fondamentali (opzionale)</div>
+    <div class="form-grid">
+      <div class="fg">
+        <label>Fair Value Label</label>
+        <select id="eFairValueLabel">
+          <option value="">-- Non specificato --</option>
+          <option>Affare</option>
+          <option>Sottovalutato</option>
+          <option>Moderatamente sottovalutato</option>
+          <option>Fair</option>
+          <option>Moderatamente sopravvalutato</option>
+          <option>Sopravvalutato</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Rialzo Target Analisti %</label>
+        <input type="number" id="eAnalystUpside" step="any" placeholder="es. 25.5">
+      </div>
+      <div class="fg">
+        <label>P/E Ratio</label>
+        <input type="number" id="ePE" step="any" placeholder="es. 18.5">
+      </div>
+      <div class="fg">
+        <label>Cash Flow Label</label>
+        <select id="eCashFlow">
+          <option value="">-- Non specificato --</option>
+          <option>Eccellente</option>
+          <option>Ottima</option>
+          <option>Buona</option>
+          <option>Nella media</option>
+          <option>Debole</option>
+        </select>
+      </div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
       <button class="btn ghost" id="btnCancelEdit">Annulla</button>
       <button class="btn primary" id="btnSaveEdit">Salva Modifiche</button>
@@ -1623,6 +1658,12 @@ function openEditPosition(id) {
   document.getElementById("eCurrency").value = p.currency || "USD";
   document.getElementById("eSector").value = p.sector || "Altro";
   document.getElementById("eRegion").value = p.region || "USA";
+  // Fondamentali
+  const fund = fundamentals[p.ticker] || {};
+  document.getElementById("eFairValueLabel").value = p.fairValueLabel || fund.fairValueLabel || "";
+  document.getElementById("eAnalystUpside").value = p.analystUpside || fund.analystUpside || "";
+  document.getElementById("ePE").value = p.pe || fund.pe || "";
+  document.getElementById("eCashFlow").value = p.cashFlowLabel || fund.cashFlowLabel || "";
   modalEditOverlay.classList.add("show");
 }
 window.openEditPosition = openEditPosition;
@@ -1645,6 +1686,11 @@ document.getElementById("btnSaveEdit").addEventListener("click", async () => {
   p.currency = document.getElementById("eCurrency").value;
   p.sector = document.getElementById("eSector").value;
   p.region = document.getElementById("eRegion").value;
+  // Save fondamentali sulla posizione
+  p.fairValueLabel = document.getElementById("eFairValueLabel").value || null;
+  p.analystUpside = parseFloat(document.getElementById("eAnalystUpside").value) || null;
+  p.pe = parseFloat(document.getElementById("ePE").value) || null;
+  p.cashFlowLabel = document.getElementById("eCashFlow").value || null;
   p.currentPrice = null;
   await savePositions(positions);
   modalEditOverlay.classList.remove("show");
