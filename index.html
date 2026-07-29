@@ -3751,7 +3751,15 @@ window.openAIAnalysis = async function(ticker) {
   const pos = positions.find(p => p.ticker === ticker);
   const wl = watchlist.find(w => w.ticker === ticker);
   const fund = fundamentals[ticker] || {};
-  aiCurrentData = { ticker, pos, wl, fund };
+  
+  // Merge fundamentals from all sources
+  const mergedFund = {
+    fairValueLabel: fund.fairValueLabel || wl?.fairValueLabel || pos?.fairValueLabel || null,
+    analystUpside: fund.analystUpside ?? wl?.analystUpside ?? pos?.analystUpside ?? null,
+    pe: fund.pe ?? wl?.pe ?? pos?.pe ?? null,
+    cashFlowLabel: fund.cashFlowLabel || wl?.cashFlowLabel || pos?.cashFlowLabel || null,
+  };
+  aiCurrentData = { ticker, pos, wl, fund: mergedFund };
 
   // Calculate DPO and Sentiment if missing using cached data
   if (wl && (!wl.dpo || !wl.sentiment) && wl._closes?.length > 30) {
