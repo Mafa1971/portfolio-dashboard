@@ -3784,12 +3784,19 @@ function loadAIChart(ticker) {
   const container = document.getElementById("aiChartContainer");
   container.innerHTML = "";
 
-  const tvTicker = ticker.endsWith(".MI")
-    ? "MIL:" + ticker.replace(".MI","")
-    : ticker.includes(".")
-    ? ticker
-    : "NASDAQ:" + ticker;
-
+  // Costruisci ticker TradingView
+  function getTVTicker(t) {
+    if (t.endsWith(".MI")) return "MIL:" + t.replace(".MI","").replace("STMMI","STM");
+    if (t.endsWith(".PA")) return "EURONEXT:" + t.replace(".PA","");
+    if (t.endsWith(".DE")) return "XETR:" + t.replace(".DE","");
+    if (t.endsWith(".L"))  return "LSE:" + t.replace(".L","");
+    if (t.endsWith(".ST")) return "OMX:" + t.replace(".ST","");
+    if (t.includes("."))   return t; // altri mercati con suffisso
+    // Ticker USA — usa simbolo diretto (TradingView trova da solo la borsa)
+    return t;
+  }
+  const tvTicker = getTVTicker(ticker);
+  // Usa la ricerca di TradingView che trova automaticamente il mercato giusto
   const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvTicker)}`;
 
   container.innerHTML = `
