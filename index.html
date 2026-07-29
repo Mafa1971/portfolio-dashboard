@@ -3780,38 +3780,93 @@ window.openAIAnalysis = async function(ticker) {
 };
 window.openAIAnalysis = openAIAnalysis;
 
-function loadAIChart(ticker) {
-  const container = document.getElementById("aiChartContainer");
-  container.innerHTML = "";
+let aiLineChart = null;
 
-  // Costruisci ticker TradingView
+async function loadAIChart(ticker) {
+  const container = document.getElementById("aiChartContainer");
+
+  // Build TV link
   function getTVTicker(t) {
     if (t.endsWith(".MI")) return "MIL:" + t.replace(".MI","").replace("STMMI","STM");
     if (t.endsWith(".PA")) return "EURONEXT:" + t.replace(".PA","");
     if (t.endsWith(".DE")) return "XETR:" + t.replace(".DE","");
     if (t.endsWith(".L"))  return "LSE:" + t.replace(".L","");
     if (t.endsWith(".ST")) return "OMX:" + t.replace(".ST","");
-    if (t.includes("."))   return t; // altri mercati con suffisso
-    // Ticker USA — usa simbolo diretto (TradingView trova da solo la borsa)
+    if (t.includes("."))   return t;
     return t;
   }
-  const tvTicker = getTVTicker(ticker);
-  // Usa la ricerca di TradingView che trova automaticamente il mercato giusto
-  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvTicker)}`;
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(getTVTicker(ticker))}`;
 
   container.innerHTML = `
-    <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--panel2);border-radius:10px;">
-      <div style="font-size:13px;color:var(--dim);text-align:center;">
-        Il grafico interattivo richiede TradingView.<br>
-        <span style="font-size:11px;">Apri il grafico completo con tutti gli indicatori nella tua sessione TradingView.</span>
+    <div style="position:relative;height:100%;padding:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;">ANDAMENTO 6 MESI — ${ticker} | <span style="color:#00d4b8;">─</span> Prezzo <span style="color:#4fa3ff;">─</span> SMA20 <span style="color:#ff9f1c;">─</span> SMA50</div>
+        <a href="${tvUrl}" target="_blank" style="font-size:10px;color:#4fa3ff;text-decoration:none;white-space:nowrap;">📈 TradingView →</a>
       </div>
-      <a href="${tvUrl}" target="_blank" 
-        style="background:linear-gradient(135deg,#1a73e8,#4fa3ff);color:#fff;border:none;border-radius:10px;padding:12px 24px;font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:8px;">
-        📈 Apri ${ticker} su TradingView
-      </a>
-      <div style="font-size:10px;color:var(--dim);">Si apre in una nuova tab — se sei già loggato accedi al tuo account</div>
+      <div id="aiChartStatus" style="font-size:11px;color:var(--dim);padding:20px;text-align:center;">⏳ Caricamento grafico...</div>
+      <canvas id="aiLineCanvas" style="display:none;width:100%;height:320px;"></canvas>
     </div>`;
+
+  try {
+    const data = await fetchYahoo(ticker, "6mo", "1d");
+    const result = data?.chart?.result?.[0];
+    const timestamps = result?.timestamp || [];
+    const closes = (result?.indicators?.quote?.[0]?.close || []);
+    if (closes.filter(v=>v!=null).length < 5) {
+      document.getElementById("aiChartStatus").textContent = "Dati insufficienti per il grafico";
+      return;
+    }
+
+    const sma20 = closes.map((_, i) => {
+      const slice = closes.slice(Math.max(0,i-19), i+1).filter(v=>v!=null);
+      return slice.length >= 10 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
+    });
+    const sma50 = closes.map((_, i) => {
+      const slice = closes.slice(Math.max(0,i-49), i+1).filter(v=>v!=null);
+      return slice.length >= 20 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
+    });
+
+    const labels = timestamps.map(ts => {
+      const d = new Date(ts * 1000);
+      return d.toLocaleDateString("it-IT", {month:"short", day:"numeric"});
+    });
+
+    const statusEl = document.getElementById("aiChartStatus");
+    if (statusEl) statusEl.style.display = "none";
+    const canvas = document.getElementById("aiLineCanvas");
+    if (!canvas) return;
+    canvas.style.display = "block";
+
+    if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
+    aiLineChart = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          { label: ticker, data: closes, borderColor: "#d4a017", backgroundColor: "rgba(212,160,23,0.08)", borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3, spanGaps: true },
+          { label: "SMA20", data: sma20, borderColor: "#4fa3ff", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true },
+          { label: "SMA50", data: sma50, borderColor: "#ff9f1c", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: "#7d8aa3", font: { size: 10 }, boxWidth: 12 } },
+          tooltip: { mode: "index", intersect: false, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2):"--"}` } }
+        },
+        scales: {
+          x: { ticks: { color: "#7d8aa3", font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: "#1e2d45" } },
+          y: { ticks: { color: "#7d8aa3", font: { size: 9 } }, grid: { color: "#1e2d45" } }
+        },
+        interaction: { mode: "index", intersect: false }
+      }
+    });
+  } catch(e) {
+    const s = document.getElementById("aiChartStatus");
+    if (s) s.textContent = "Errore: " + e.message;
+  }
 }
+
 
 function renderAITechData(pos, wl, fund) {
   const wrap = document.getElementById("aiTechData");
@@ -3872,7 +3927,7 @@ window.setQ = function(q) {
   document.getElementById("aiQuestion").focus();
 };
 
-window.askAI = async function() {
+window.askAI = function() {
   const question = document.getElementById("aiQuestion").value.trim();
   if (!question) return;
 
@@ -3884,11 +3939,9 @@ window.askAI = async function() {
 
   // Add user message
   chatEl.innerHTML += `<div style="align-self:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px 10px 0 10px;padding:8px 12px;font-size:12px;max-width:80%;">${question}</div>`;
-  chatEl.innerHTML += `<div id="aiLoading" style="align-self:flex-start;color:var(--dim);font-size:11px;">🤖 Analisi in corso...</div>`;
-  chatEl.scrollTop = chatEl.scrollHeight;
   document.getElementById("aiQuestion").value = "";
 
-  // Build context for AI
+  // Gather data
   const score = pos?.compositeScore || wl?.compositeScore;
   const rsi = pos?.rsi || wl?.rsi;
   const signal = pos?.signal?.label || wl?.techRating;
@@ -3901,76 +3954,130 @@ window.askAI = async function() {
   const sma50 = pos?.sma50;
   const sma200 = pos?.sma200;
   const stopLoss = pos?.stopLoss;
+  const cf = fund?.cashFlowLabel || wl?.cashFlowLabel;
 
-  const systemPrompt = `Sei un esperto analista finanziario che consulta un investitore sulla sua dashboard di trading FMP Trading. 
-Rispondi in italiano, in modo conciso e diretto (max 200 parole). 
-Non sei un consulente finanziario ufficiale — dai opinioni basate sui dati tecnici e fondamentali.
-Usa emoji per rendere la risposta più leggibile.`;
+  // Generate rule-based analysis
+  const answer = generateAIAnalysis(ticker, { score, rsi, signal, dpo, sentiment, fv, upside, pe, price, sma50, sma200, stopLoss, cf, pos, wl }, question);
 
-  const userPrompt = `Titolo: ${ticker} ${pos ? `(in portafoglio a €${pos.buyPrice?.toFixed(2)})` : "(in watchlist)"}
+  chatEl.innerHTML += `<div style="align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px 10px 10px 0;padding:10px 12px;font-size:12px;max-width:90%;line-height:1.6;">${answer}</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
 
-Dati tecnici disponibili:
-- Score composito: ${score?.toFixed(1) || "N/D"}/10
-- Segnale: ${signal || "N/D"}
-- RSI: ${rsi?.toFixed(0) || "N/D"}
-- DPO: ${dpo || "N/D"}
-- Sentiment: ${sentiment || "N/D"}
-- SMA50: ${sma50?.toFixed(2) || "N/D"}
-- SMA200: ${sma200?.toFixed(2) || "N/D"}
-- Prezzo attuale: ${price ? "€"+price.toFixed(2) : "N/D"}
-${stopLoss ? `- Stop Loss: €${stopLoss.toFixed(2)}` : ""}
+  // Save to Supabase silently
+  sbFetch("ai_analysis", "POST", [{
+    id: "ai_"+Date.now()+"_"+ticker,
+    user_id: currentUser, ticker, question, answer,
+    score: score||null, rsi: rsi||null, signal: signal||null, fair_value: fv||null
+  }]).then(() => loadAIHistory(ticker)).catch(()=>{});
+};
 
-Dati fondamentali:
-- Fair Value: ${fv || "N/D"}
-- Rialzo Target Analisti: ${upside ? upside+"%" : "N/D"}
-- P/E: ${pe ? pe+"x" : "N/D"}
-- Cash Flow: ${fund?.cashFlowLabel || wl?.cashFlowLabel || "N/D"}
+function generateAIAnalysis(ticker, d, question) {
+  const q = question.toLowerCase();
+  const sym = ticker.endsWith(".MI") ? "€" : "$";
+  const inPort = !!d.pos;
 
-Domanda dell'investitore: ${question}`;
+  // Score interpretation
+  const scoreText = !d.score ? "Score non disponibile" :
+    d.score >= 8 ? `🟢 <strong>Score eccellente (${d.score}/10)</strong> — segnale molto forte` :
+    d.score >= 6 ? `🟡 <strong>Score buono (${d.score}/10)</strong> — segnale positivo` :
+    d.score >= 4 ? `🟠 <strong>Score neutro (${d.score}/10)</strong> — attendere conferma` :
+    `🔴 <strong>Score basso (${d.score}/10)</strong> — segnale negativo`;
 
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }]
-      })
-    });
+  // RSI interpretation
+  const rsiText = !d.rsi ? "RSI non disponibile" :
+    d.rsi > 75 ? `⚠️ RSI ${d.rsi.toFixed(0)} — <strong>fortemente ipercomprato</strong>, possibile correzione` :
+    d.rsi > 65 ? `🟡 RSI ${d.rsi.toFixed(0)} — zona ipercomprato, attenzione` :
+    d.rsi < 25 ? `💎 RSI ${d.rsi.toFixed(0)} — <strong>fortemente ipervenduto</strong>, possibile rimbalzo` :
+    d.rsi < 35 ? `🟢 RSI ${d.rsi.toFixed(0)} — zona ipervenduto, opportunità` :
+    `✅ RSI ${d.rsi.toFixed(0)} — zona neutrale`;
 
-    const data = await response.json();
-    const answer = data.content?.[0]?.text || "Nessuna risposta disponibile.";
+  // Trend SMA
+  const trendText = d.price && d.sma50 && d.sma200 ?
+    (d.price > d.sma50 && d.price > d.sma200 ? "📈 <strong>Trend rialzista</strong> — prezzo sopra SMA50 e SMA200" :
+     d.price > d.sma50 ? "↗️ Trend positivo di breve — sopra SMA50 ma sotto SMA200" :
+     d.price < d.sma50 && d.price < d.sma200 ? "📉 <strong>Trend ribassista</strong> — prezzo sotto SMA50 e SMA200" :
+     "↘️ Trend debole — sotto SMA50") : "";
 
-    // Remove loading
-    document.getElementById("aiLoading")?.remove();
+  // Fair Value
+  const fvText = !d.fv ? "" :
+    d.fv === "Sottovalutato" ? "💰 <strong>Sottovalutato</strong> rispetto al fair value" :
+    d.fv === "Moderatamente sottovalutato" ? "🔵 Moderatamente sottovalutato" :
+    d.fv === "Sopravvalutato" ? "🔴 <strong>Sopravvalutato</strong> rispetto al fair value — attenzione" :
+    d.fv === "Affare" ? "🎯 <strong>Affare</strong> — prezzo molto conveniente" :
+    `Fair Value: ${d.fv}`;
 
-    // Add AI response
-    chatEl.innerHTML += `<div style="align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px 10px 10px 0;padding:10px 12px;font-size:12px;max-width:90%;line-height:1.5;">${answer.replace(/\n/g,"<br>")}</div>`;
-    chatEl.scrollTop = chatEl.scrollHeight;
+  // Analyst upside
+  const upsideText = d.upside != null ?
+    (d.upside > 20 ? `🎯 Target analisti: <strong>+${d.upside}%</strong> di rialzo potenziale` :
+     d.upside > 0 ? `📊 Target analisti: +${d.upside}% di upside` :
+     `⚠️ Target analisti sotto il prezzo attuale (${d.upside}%)`) : "";
 
-    // Save to Supabase
-    try {
-      await sbFetch("ai_analysis", "POST", [{
-        id: "ai_"+Date.now()+"_"+ticker,
-        user_id: currentUser,
-        ticker,
-        question,
-        answer,
-        score: score || null,
-        rsi: rsi || null,
-        signal: signal || null,
-        fair_value: fv || null
-      }]);
-      // Reload history
-      await loadAIHistory(ticker);
-    } catch(e) {}
+  // Stop loss check
+  const stopText = d.pos && d.stopLoss && d.price ?
+    (d.price <= d.stopLoss ? `🛑 <strong>ATTENZIONE: prezzo sotto lo stop loss (${sym}${d.stopLoss.toFixed(2)})!</strong>` :
+     ((d.price - d.stopLoss)/d.price*100 < 5) ? `⚠️ Vicino allo stop loss (${sym}${d.stopLoss.toFixed(2)}) — ${((d.price-d.stopLoss)/d.price*100).toFixed(1)}% di margine` : "") : "";
 
-  } catch(e) {
-    document.getElementById("aiLoading")?.remove();
-    chatEl.innerHTML += `<div style="color:#ff6b6b;font-size:11px;">Errore: ${e.message}</div>`;
+  // Build response based on question type
+  let response = "";
+
+  if (q.includes("analisi tecnica") || q.includes("tecnica") || q.includes("segnale")) {
+    response = `📊 <strong>Analisi Tecnica — ${ticker}</strong><br><br>
+${scoreText}<br>
+${rsiText}<br>
+${trendText ? trendText+"<br>" : ""}
+${d.dpo ? `📉 DPO: <strong>${d.dpo}</strong><br>` : ""}
+${d.sentiment ? `🌡️ Sentiment: <strong>${d.sentiment}</strong><br>` : ""}
+${stopText ? stopText+"<br>" : ""}
+<br>${fvText ? fvText+"<br>" : ""}
+${upsideText ? upsideText+"<br>" : ""}
+${d.cf ? `💵 Cash Flow: ${d.cf}` : ""}`;
+
+  } else if (q.includes("entr") || q.includes("comprare") || q.includes("acquist") || q.includes("momento")) {
+    const signal = d.score >= 6 && d.rsi < 65 && (d.fv === "Sottovalutato" || d.fv === "Affare" || d.fv === "Moderatamente sottovalutato");
+    const warning = d.rsi > 70 || d.score < 4 || d.fv === "Sopravvalutato";
+    response = `🎯 <strong>Momento di entrata — ${ticker}</strong><br><br>
+${signal ? "✅ <strong>Condizioni favorevoli per entrare:</strong>" : warning ? "⚠️ <strong>Condizioni non ottimali — attendere:</strong>" : "🟡 <strong>Situazione mista — valutare con cautela:</strong>"}<br><br>
+${scoreText}<br>
+${rsiText}<br>
+${trendText ? trendText+"<br>" : ""}
+${fvText ? fvText+"<br>" : ""}
+${upsideText ? upsideText+"<br>" : ""}
+<br>💡 <em>Non è consulenza finanziaria — valuta sempre il contesto di mercato.</em>`;
+
+  } else if (q.includes("rischi") || q.includes("rischio")) {
+    const risks = [];
+    if (d.rsi > 70) risks.push("🔴 RSI ipercomprato — rischio di correzione");
+    if (d.score < 4) risks.push("🔴 Score basso — trend tecnico negativo");
+    if (d.fv === "Sopravvalutato") risks.push("🔴 Titolo sopravvalutato rispetto al fair value");
+    if (d.upside < 0) risks.push("🔴 Target analisti sotto il prezzo attuale");
+    if (d.pe && d.pe > 30) risks.push(`🟡 P/E elevato (${d.pe}x) — valutazione cara`);
+    if (d.price && d.sma200 && d.price < d.sma200) risks.push("🟡 Prezzo sotto SMA200 — trend ribassista");
+    if (stopText) risks.push(stopText);
+    if (risks.length === 0) risks.push("✅ Nessun rischio critico rilevato dai dati disponibili");
+    response = `⚠️ <strong>Rischi principali — ${ticker}</strong><br><br>${risks.join("<br>")}
+<br><br>📊 ${scoreText}<br>${rsiText}`;
+
+  } else if (q.includes("benchmark") || q.includes("settore") || q.includes("confronto")) {
+    response = `📈 <strong>Confronto con il settore — ${ticker}</strong><br><br>
+${scoreText}<br>
+${fvText ? fvText+"<br>" : ""}
+${upsideText ? upsideText+"<br>" : ""}
+${d.pe ? `💹 P/E: ${d.pe}x ${d.pe<15?"— conveniente rispetto alla media":d.pe>30?"— caro rispetto alla media":"— in linea con la media"}<br>` : ""}
+${d.cf ? `💵 Cash Flow: <strong>${d.cf}</strong><br>` : ""}
+<br>💡 Per un confronto dettagliato con i peer del settore consulta i dati fondamentali nella scheda titolo.`;
+
+  } else {
+    // General analysis
+    response = `🤖 <strong>Analisi — ${ticker}</strong>${inPort?" (in portafoglio)":""}<br><br>
+${scoreText}<br>
+${rsiText}<br>
+${trendText ? trendText+"<br>" : ""}
+${fvText ? fvText+"<br>" : ""}
+${upsideText ? upsideText+"<br>" : ""}
+${stopText ? "<br>"+stopText+"<br>" : ""}
+<br>💡 <em>Analisi basata su dati tecnici e fondamentali. Non è consulenza finanziaria.</em>`;
   }
+
+  return response.replace(/\n\n/g,"<br>").trim();
 };
 
 </script>
