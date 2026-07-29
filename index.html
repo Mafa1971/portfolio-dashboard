@@ -3464,6 +3464,10 @@ async function fetchWatchPrice(ticker) {
           });
           w.compositeScore = sd.composite;
           w.techRating = sd.techRating;
+          w.techColor = sd.techColor;
+          // Add DPO and Sentiment
+          w.dpo = calcDPO(closesY);
+          w.sentiment = calcSentiment(closesY, highsY, lowsY, w.rsi);
         }
       }
     } catch(e3) {}
@@ -3881,8 +3885,8 @@ function renderAITechData(pos, wl, fund) {
   const fv = fund?.fairValueLabel || wl?.fairValueLabel || "--";
   const upside = fund?.analystUpside || wl?.analystUpside;
   const pe = fund?.pe || wl?.pe;
-  const dpo = pos?.dpo?.text || "--";
-  const sent = pos?.sentiment?.text || "--";
+  const dpo = pos?.dpo?.text || wl?.dpo?.text || "--";
+  const sent = pos?.sentiment?.text || wl?.sentiment?.text || "--";
 
   const items = [
     { l: "Score", v: score ? score.toFixed(1) : "--", col: score>=7?"#00d4b8":score>=5?"#80ed99":score>=3?"#ffd23f":"#ff6b6b" },
