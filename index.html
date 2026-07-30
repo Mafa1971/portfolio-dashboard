@@ -1164,13 +1164,8 @@ async function savePositions(pos) {
         pe: p.pe || null,
         cash_flow_label: p.cashFlowLabel || null
       };
-      try {
-        // Try PATCH first (update existing)
-        await sbFetch(`positions?id=eq.${p.id}`, "PATCH", [row]);
-      } catch(e) {
-        // If not found, INSERT
-        await sbFetch("positions", "POST", [row]);
-      }
+      // PATCH aggiorna la riga esistente (oggetto singolo, non array)
+      await sbFetch(`positions?id=eq.${p.id}`, "PATCH", row);
     }
   } catch(e) { console.error("Errore salvataggio posizioni:", e); }
 }
