@@ -3806,21 +3806,18 @@ window.openAIAnalysis = async function(ticker) {
   aiCurrentTicker = ticker;
   aiChatMessages = [];
 
-  // Ricarica posizioni fresche da Supabase
+  // Ricarica solo i fondamentali freschi da Supabase per questo ticker
   try {
-    const posData = await sbFetch(`positions?select=*&user_id=eq.${currentUser}&order=created_at.asc`);
-    if (posData) positions = posData.map(r => ({
-      id: r.id, ticker: r.ticker, name: r.name, qty: r.qty,
-      buyPrice: r.buy_price, buyDate: r.buy_date, currency: r.currency,
-      sector: r.sector, region: r.region, currentPrice: r.current_price,
-      ath: r.ath, isManual: r.is_manual, lastFetch: r.last_fetch,
-      signal: r.signal_label ? { label: r.signal_label, color: r.signal_color } : null,
-      sma21: r.sma21, sma100: r.sma100, sma200: r.sma200, rsi: r.rsi,
-      prevClose: r.prev_close || null, dayChangePct: r.day_change_pct || null,
-      target: r.target || null, stopLoss: r.stop_loss || null, alertNotes: r.alert_notes || null,
-      fairValueLabel: r.fair_value_label || null, analystUpside: r.analyst_upside || null,
-      pe: r.pe || null, cashFlowLabel: r.cash_flow_label || null
-    }));
+    const fresh = await sbFetch(`positions?select=fair_value_label,analyst_upside,pe,cash_flow_label&user_id=eq.${currentUser}&ticker=eq.${ticker}&limit=1`);
+    if (fresh && fresh.length > 0) {
+      const pos = positions.find(p => p.ticker === ticker);
+      if (pos) {
+        pos.fairValueLabel = fresh[0].fair_value_label || pos.fairValueLabel;
+        pos.analystUpside = fresh[0].analyst_upside || pos.analystUpside;
+        pos.pe = fresh[0].pe || pos.pe;
+        pos.cashFlowLabel = fresh[0].cash_flow_label || pos.cashFlowLabel;
+      }
+    }
   } catch(e) {}
 
   // Find data from positions or watchlist
