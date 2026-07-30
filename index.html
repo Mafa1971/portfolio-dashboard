@@ -905,8 +905,12 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     </div>
 
     <!-- GRAFICO -->
-    <div style="height:400px;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line);">
-      <div id="aiChartContainer" style="height:100%;"></div>
+    <div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line);">
+      <div id="aiChartContainer" style="height:300px;"></div>
+      <div style="height:100px;border-top:1px solid var(--line);padding:6px 10px;background:var(--panel2);">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:4px;">VOLUME | <span style="color:#00d4b8;">─</span> Verde = rialzo <span style="color:#ff6b6b;">─</span> Rosso = ribasso <span style="color:#ffd23f;">─</span> Vol MA20</div>
+        <canvas id="aiVolCanvas" style="width:100%;height:75px;"></canvas>
+      </div>
     </div>
 
     <!-- DATI TECNICI -->
@@ -3865,6 +3869,7 @@ window.openAIAnalysis = async function(ticker) {
 window.openAIAnalysis = openAIAnalysis;
 
 let aiLineChart = null;
+let aiVolumeChart = null;
 let aiChartTicker = null;
 
 function getTVTicker(t) {
@@ -3890,6 +3895,7 @@ async function loadAIChart(ticker, range) {
           <span style="font-size:10px;color:var(--dim);letter-spacing:1px;">${ticker}</span>
           <span style="font-size:10px;color:var(--dim);">
             <span style="color:#ff9f1c;">─</span> Prezzo
+            <span style="color:#00d4b8;margin-left:6px;">─</span> SMA21
             <span style="color:#ff0000;margin-left:6px;">─</span> SMA50
             <span style="color:#c77dff;margin-left:6px;">- -</span> SMA200
           </span>
@@ -3921,6 +3927,12 @@ async function loadAIChart(ticker, range) {
       return;
     }
 
+    const volumes = result?.indicators?.quote?.[0]?.volume || [];
+    
+    const sma21 = closes.map((_, i) => {
+      const slice = closes.slice(Math.max(0,i-20), i+1).filter(v=>v!=null);
+      return slice.length >= 10 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
+    });
     const sma50 = closes.map((_, i) => {
       const slice = closes.slice(Math.max(0,i-49), i+1).filter(v=>v!=null);
       return slice.length >= 20 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
@@ -3929,6 +3941,11 @@ async function loadAIChart(ticker, range) {
       const slice = closes.slice(Math.max(0,i-199), i+1).filter(v=>v!=null);
       return slice.length >= 50 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
     });
+    // Volume SMA20
+    const volSma20 = volumes.map((_, i) => {
+      const slice = volumes.slice(Math.max(0,i-19), i+1).filter(v=>v!=null&&v>0);
+      return slice.length >= 5 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
+    });
 
     const labels = timestamps.map(ts => {
       const d = new Date(ts * 1000);
@@ -3936,46 +3953,24 @@ async function loadAIChart(ticker, range) {
     });
 
     document.getElementById("aiChartStatus").style.display = "none";
-    const canvas = document.getElementById("aiLineCanvas");
-    if (!canvas) return;
-    canvas.style.display = "block";
+
+    // Create 2-canvas layout: price chart + volume chart
+    const canvasWrap = document.getElementById("aiLineCanvas");
+    if (!canvasWrap) return;
+    canvasWrap.style.display = "block";
 
     if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
-    aiLineChart = new Chart(canvas.getContext("2d"), {
+    if (aiVolumeChart) { aiVolumeChart.destroy(); aiVolumeChart = null; }
+
+    aiLineChart = new Chart(canvasWrap.getContext("2d"), {
       type: "line",
       data: {
         labels,
         datasets: [
-          {
-            label: ticker,
-            data: closes,
-            borderColor: "#ff9f1c",
-            backgroundColor: "rgba(255,159,28,0.08)",
-            borderWidth: 2.5,
-            pointRadius: 0,
-            fill: true,
-            tension: 0.3,
-            spanGaps: true
-          },
-          {
-            label: "SMA50",
-            data: sma50,
-            borderColor: "#ff0000",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.3,
-            spanGaps: true
-          },
-          {
-            label: "SMA200",
-            data: sma200,
-            borderColor: "#c77dff",
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.3,
-            spanGaps: true,
-            borderDash: [4,3]
-          }
+          { label: ticker, data: closes, borderColor: "#ff9f1c", backgroundColor: "rgba(255,159,28,0.06)", borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3, spanGaps: true, yAxisID: "y" },
+          { label: "SMA21", data: sma21, borderColor: "#00d4b8", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true, yAxisID: "y" },
+          { label: "SMA50", data: sma50, borderColor: "#ff0000", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true, yAxisID: "y" },
+          { label: "SMA200", data: sma200, borderColor: "#c77dff", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true, borderDash: [4,3], yAxisID: "y" }
         ]
       },
       options: {
@@ -3991,6 +3986,32 @@ async function loadAIChart(ticker, range) {
         interaction: { mode: "index", intersect: false }
       }
     });
+
+    // Volume chart
+    const volCanvas = document.getElementById("aiVolCanvas");
+    if (volCanvas && volumes.length > 0) {
+      const volColors = closes.map((c,i) => i>0 && c >= closes[i-1] ? "rgba(0,212,184,0.6)" : "rgba(255,107,107,0.6)");
+      aiVolumeChart = new Chart(volCanvas.getContext("2d"), {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            { label: "Volume", data: volumes, backgroundColor: volColors, borderWidth: 0, yAxisID: "yVol" },
+            { label: "Vol MA20", data: volSma20, type: "line", borderColor: "#ffd23f", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true, yAxisID: "yVol" }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#7d8aa3", font: { size: 9 }, boxWidth: 10 } },
+            tooltip: { mode: "index", intersect: false, callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y!=null?(c.parsed.y/1e6).toFixed(1)+"M":"--"}` } }
+          },
+          scales: {
+            x: { ticks: { color: "#7d8aa3", font: { size: 8 }, maxTicksLimit: 6 }, grid: { color: "#1e2d45" } },
+            yVol: { ticks: { color: "#7d8aa3", font: { size: 8 }, callback: v => (v/1e6).toFixed(0)+"M" }, grid: { color: "#1e2d45" } }
+          }
+        }
+      });
+    }
   } catch(e) {
     const s = document.getElementById("aiChartStatus");
     if (s) s.textContent = "Errore: " + e.message;
