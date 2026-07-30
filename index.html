@@ -3865,51 +3865,69 @@ window.openAIAnalysis = async function(ticker) {
 window.openAIAnalysis = openAIAnalysis;
 
 let aiLineChart = null;
+let aiChartTicker = null;
 
-async function loadAIChart(ticker) {
+function getTVTicker(t) {
+  if (t.endsWith(".MI")) return "MIL:" + t.replace(".MI","").replace("STMMI","STM");
+  if (t.endsWith(".PA")) return "EURONEXT:" + t.replace(".PA","");
+  if (t.endsWith(".DE")) return "XETR:" + t.replace(".DE","");
+  if (t.endsWith(".L"))  return "LSE:" + t.replace(".L","");
+  if (t.endsWith(".ST")) return "OMX:" + t.replace(".ST","");
+  if (t.includes("."))   return t;
+  return t;
+}
+
+async function loadAIChart(ticker, range) {
+  aiChartTicker = ticker;
+  const r = range || document.getElementById("aiChartRange")?.value || "6mo";
   const container = document.getElementById("aiChartContainer");
-
-  // Build TV link
-  function getTVTicker(t) {
-    if (t.endsWith(".MI")) return "MIL:" + t.replace(".MI","").replace("STMMI","STM");
-    if (t.endsWith(".PA")) return "EURONEXT:" + t.replace(".PA","");
-    if (t.endsWith(".DE")) return "XETR:" + t.replace(".DE","");
-    if (t.endsWith(".L"))  return "LSE:" + t.replace(".L","");
-    if (t.endsWith(".ST")) return "OMX:" + t.replace(".ST","");
-    if (t.includes("."))   return t;
-    return t;
-  }
   const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(getTVTicker(ticker))}`;
 
   container.innerHTML = `
-    <div style="position:relative;height:100%;padding:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;">ANDAMENTO 6 MESI — ${ticker} | <span style="color:#00d4b8;">─</span> Prezzo <span style="color:#4fa3ff;">─</span> SMA20 <span style="color:#ff9f1c;">─</span> SMA50</div>
-        <a href="${tvUrl}" target="_blank" style="font-size:10px;color:#4fa3ff;text-decoration:none;white-space:nowrap;">📈 TradingView →</a>
+    <div style="height:100%;padding:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:10px;color:var(--dim);letter-spacing:1px;">${ticker}</span>
+          <span style="font-size:10px;color:var(--dim);">
+            <span style="color:#ff9f1c;">─</span> Prezzo
+            <span style="color:#ff0000;margin-left:6px;">─</span> SMA50
+            <span style="color:#c77dff;margin-left:6px;">- -</span> SMA200
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <select id="aiChartRange" onchange="loadAIChart('${ticker}')"
+            style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:4px 8px;border-radius:6px;font-size:10px;cursor:pointer;">
+            <option value="3mo" ${r==='3mo'?'selected':''}>3 Mesi</option>
+            <option value="6mo" ${r==='6mo'?'selected':''}>6 Mesi</option>
+            <option value="1y" ${r==='1y'?'selected':''}>1 Anno</option>
+            <option value="2y" ${r==='2y'?'selected':''}>2 Anni</option>
+          </select>
+          <a href="${tvUrl}" target="_blank" style="font-size:10px;color:#4fa3ff;text-decoration:none;white-space:nowrap;">📈 TV →</a>
+        </div>
       </div>
-      <div id="aiChartStatus" style="font-size:11px;color:var(--dim);padding:20px;text-align:center;">⏳ Caricamento grafico...</div>
-      <canvas id="aiLineCanvas" style="display:none;width:100%;height:320px;"></canvas>
+      <div id="aiChartStatus" style="font-size:11px;color:var(--dim);padding:20px;text-align:center;">⏳ Caricamento...</div>
+      <canvas id="aiLineCanvas" style="display:none;width:100%;height:300px;"></canvas>
     </div>`;
 
   try {
-    const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=6mo&interval=1d`;
+    const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=${r}&interval=1d`;
     const res = await fetch(url);
     const data = await res.json();
     const result = data?.chart?.result?.[0];
     const timestamps = result?.timestamp || [];
-    const closes = (result?.indicators?.quote?.[0]?.close || []);
+    const closes = result?.indicators?.quote?.[0]?.close || [];
     if (closes.filter(v=>v!=null).length < 5) {
-      document.getElementById("aiChartStatus").textContent = "Dati insufficienti per il grafico";
+      document.getElementById("aiChartStatus").textContent = "Dati insufficienti";
       return;
     }
 
-    const sma20 = closes.map((_, i) => {
-      const slice = closes.slice(Math.max(0,i-19), i+1).filter(v=>v!=null);
-      return slice.length >= 10 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
-    });
     const sma50 = closes.map((_, i) => {
       const slice = closes.slice(Math.max(0,i-49), i+1).filter(v=>v!=null);
       return slice.length >= 20 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
+    });
+    const sma200 = closes.map((_, i) => {
+      const slice = closes.slice(Math.max(0,i-199), i+1).filter(v=>v!=null);
+      return slice.length >= 50 ? slice.reduce((a,b)=>a+b,0)/slice.length : null;
     });
 
     const labels = timestamps.map(ts => {
@@ -3917,8 +3935,7 @@ async function loadAIChart(ticker) {
       return d.toLocaleDateString("it-IT", {month:"short", day:"numeric"});
     });
 
-    const statusEl = document.getElementById("aiChartStatus");
-    if (statusEl) statusEl.style.display = "none";
+    document.getElementById("aiChartStatus").style.display = "none";
     const canvas = document.getElementById("aiLineCanvas");
     if (!canvas) return;
     canvas.style.display = "block";
@@ -3929,9 +3946,36 @@ async function loadAIChart(ticker) {
       data: {
         labels,
         datasets: [
-          { label: ticker, data: closes, borderColor: "#d4a017", backgroundColor: "rgba(212,160,23,0.08)", borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3, spanGaps: true },
-          { label: "SMA20", data: sma20, borderColor: "#4fa3ff", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true },
-          { label: "SMA50", data: sma50, borderColor: "#ff9f1c", borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true }
+          {
+            label: ticker,
+            data: closes,
+            borderColor: "#ff9f1c",
+            backgroundColor: "rgba(255,159,28,0.08)",
+            borderWidth: 2.5,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.3,
+            spanGaps: true
+          },
+          {
+            label: "SMA50",
+            data: sma50,
+            borderColor: "#ff0000",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            spanGaps: true
+          },
+          {
+            label: "SMA200",
+            data: sma200,
+            borderColor: "#c77dff",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            spanGaps: true,
+            borderDash: [4,3]
+          }
         ]
       },
       options: {
@@ -3952,6 +3996,7 @@ async function loadAIChart(ticker) {
     if (s) s.textContent = "Errore: " + e.message;
   }
 }
+window.loadAIChart = loadAIChart;
 
 
 function renderAITechData(pos, wl, fund) {
@@ -4052,11 +4097,19 @@ window.askAI = function() {
   chatEl.scrollTop = chatEl.scrollHeight;
 
   // Save to Supabase silently
+  const aiId = "ai_"+Date.now()+"_"+currentUser+"_"+ticker;
   sbFetch("ai_analysis", "POST", [{
-    id: "ai_"+Date.now()+"_"+ticker,
-    user_id: currentUser, ticker, question, answer,
-    score: score||null, rsi: rsi||null, signal: signal||null, fair_value: fv||null
-  }]).then(() => loadAIHistory(ticker)).catch(()=>{});
+    id: aiId,
+    user_id: currentUser,
+    ticker: ticker,
+    question: question,
+    answer: answer,
+    score: score||null,
+    rsi: rsi||null,
+    signal: signal||null,
+    fair_value: fv||null,
+    created_at: new Date().toISOString()
+  }]).then(() => loadAIHistory(ticker)).catch(e => console.error("Save AI error:", e));
 };
 
 function generateAIAnalysis(ticker, d, question) {
