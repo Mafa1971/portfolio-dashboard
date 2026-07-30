@@ -1116,7 +1116,11 @@ async function loadAllData() {
       dayChangePct: r.day_change_pct || null,
       target: r.target || null,
       stopLoss: r.stop_loss || null,
-      alertNotes: r.alert_notes || null
+      alertNotes: r.alert_notes || null,
+      fairValueLabel: r.fair_value_label || null,
+      analystUpside: r.analyst_upside || null,
+      pe: r.pe || null,
+      cashFlowLabel: r.cash_flow_label || null
     }));
 
     closedLots = closedData.map(r => ({
@@ -1153,7 +1157,11 @@ async function savePositions(pos) {
       day_change_pct: p.dayChangePct || null,
       target: p.target || null,
       stop_loss: p.stopLoss || null,
-      alert_notes: p.alertNotes || null
+      alert_notes: p.alertNotes || null,
+      fair_value_label: p.fairValueLabel || null,
+      analyst_upside: p.analystUpside || null,
+      pe: p.pe || null,
+      cash_flow_label: p.cashFlowLabel || null
     }));
     if (rows.length > 0) {
       await sbFetch("positions?on_conflict=id", "POST", rows);
