@@ -1144,27 +1144,33 @@ async function loadAllData() {
 // ── SAVE FUNCTIONS ────────────────────────────────────────────────────
 async function savePositions(pos) {
   try {
-    const rows = pos.map(p => ({
-      id: p.id, user_id: currentUser, ticker: p.ticker, name: p.name, qty: p.qty,
-      buy_price: p.buyPrice, buy_date: p.buyDate, currency: p.currency,
-      sector: p.sector, region: p.region, current_price: p.currentPrice,
-      ath: p.ath, is_manual: p.isManual || false, last_fetch: p.lastFetch,
-      signal_label: p.signal ? p.signal.label : null,
-      signal_color: p.signal ? p.signal.color : null,
-      sma21: p.sma21 || null, sma100: p.sma100 || null,
-      sma200: p.sma200 || null, rsi: p.rsi || null,
-      prev_close: p.prevClose || null,
-      day_change_pct: p.dayChangePct || null,
-      target: p.target || null,
-      stop_loss: p.stopLoss || null,
-      alert_notes: p.alertNotes || null,
-      fair_value_label: p.fairValueLabel || null,
-      analyst_upside: p.analystUpside || null,
-      pe: p.pe || null,
-      cash_flow_label: p.cashFlowLabel || null
-    }));
-    if (rows.length > 0) {
-      await sbFetch("positions?on_conflict=id", "POST", rows);
+    for (const p of pos) {
+      const row = {
+        id: p.id, user_id: currentUser, ticker: p.ticker, name: p.name, qty: p.qty,
+        buy_price: p.buyPrice, buy_date: p.buyDate, currency: p.currency,
+        sector: p.sector, region: p.region, current_price: p.currentPrice,
+        ath: p.ath, is_manual: p.isManual || false, last_fetch: p.lastFetch,
+        signal_label: p.signal ? p.signal.label : null,
+        signal_color: p.signal ? p.signal.color : null,
+        sma21: p.sma21 || null, sma100: p.sma100 || null,
+        sma200: p.sma200 || null, rsi: p.rsi || null,
+        prev_close: p.prevClose || null,
+        day_change_pct: p.dayChangePct || null,
+        target: p.target || null,
+        stop_loss: p.stopLoss || null,
+        alert_notes: p.alertNotes || null,
+        fair_value_label: p.fairValueLabel || null,
+        analyst_upside: p.analystUpside || null,
+        pe: p.pe || null,
+        cash_flow_label: p.cashFlowLabel || null
+      };
+      try {
+        // Try PATCH first (update existing)
+        await sbFetch(`positions?id=eq.${p.id}`, "PATCH", [row]);
+      } catch(e) {
+        // If not found, INSERT
+        await sbFetch("positions", "POST", [row]);
+      }
     }
   } catch(e) { console.error("Errore salvataggio posizioni:", e); }
 }
