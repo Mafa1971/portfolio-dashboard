@@ -3678,13 +3678,15 @@ function renderWatchlist() {
     const noteText = w.notes ? `<div style="font-size:10px;color:var(--dim);">${w.notes}</div>` : "";
     const alertText = w.alertPrice ? `<div style="font-size:10px;color:#00d4b8;">🟢 BUY: ${sym}${w.alertPrice}</div>` : "";
     const supportText = w.alertSupport ? `<div style="font-size:10px;color:#4fa3ff;">🔵 SUP: ${sym}${w.alertSupport}</div>` : "";
+    const inPort = positions.some(p => p.ticker === w.ticker);
 
-    h += `<tr style="border-top:1px solid #1a2030;">
+    h += `<tr style="border-top:1px solid #1a2030;${inPort?'background:#00d4b808;border-left:3px solid #00d4b844;':''}">
       <td style="padding:9px 8px;">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
           <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
           <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" style="font-size:11px;text-decoration:none;">📈</a>
           ${alertBadge}
+          ${inPort ? `<span style="font-size:9px;font-weight:700;color:#00d4b8;background:#00d4b822;padding:1px 6px;border-radius:4px;">✅ IN PORT.</span>` : ""}
         </div>
         <div style="font-size:10px;color:var(--dim);margin-top:2px;">${w.name}</div>
         <div style="font-size:10px;color:var(--dim);">${w.industry||""} ${w.country ? "· "+w.country : ""}</div>
@@ -4001,7 +4003,7 @@ window.openAIAnalysis = async function(ticker) {
             </div>
           </div>
           <button onclick="saveAIFundamentals('${ticker}')" 
-            style="margin-top:10px;background:var(--gold);color:#111;border:none;border-radius:6px;padding:7px 16px;font-size:11px;font-weight:700;cursor:pointer;">
+            style="margin-top:10px;background:var(--gold);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:11px;font-weight:700;cursor:pointer;">
             💾 Salva e Applica
           </button>
         </div>`;
@@ -4159,7 +4161,12 @@ async function loadAIChart(ticker, range) {
     // Volume chart
     const volCanvas = document.getElementById("aiVolCanvas");
     if (volCanvas && volumes.length > 0) {
-      const volColors = closes.map((c,i) => i>0 && c >= closes[i-1] ? "rgba(0,212,184,0.6)" : "rgba(255,107,107,0.6)");
+      const volColors = closes.map((c,i) => {
+      const isUp = i>0 && c >= closes[i-1];
+      const aboveMA = volSma20[i] && volumes[i] > volSma20[i] * 1.2; // >20% sopra media
+      if (aboveMA) return isUp ? "rgba(0,212,184,1)" : "rgba(255,107,107,1)"; // pieno se sopra media
+      return isUp ? "rgba(0,212,184,0.45)" : "rgba(255,107,107,0.45)";
+    });
       aiVolumeChart = new Chart(volCanvas.getContext("2d"), {
         type: "bar",
         data: {
