@@ -913,6 +913,9 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       </div>
     </div>
 
+    <!-- FONDAMENTALI MANCANTI -->
+    <div id="aiFundInput" style="display:none;"></div>
+
     <!-- DATI TECNICI -->
     <div id="aiTechData" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:16px;"></div>
 
@@ -1086,7 +1089,7 @@ async function sbFetch(path, method = "GET", body = null) {
     }
   };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(`/.netlify/functions/supabase?path=${encodeURIComponent(path)}`, opts);
+  const res = await fetch(`/.netlify/functions/supabase?path=${path.replace(/&/g,'%26')}`, opts);
   if (!res.ok) {
     const err = await res.text();
     throw new Error(err);
@@ -3862,6 +3865,40 @@ let aiCurrentTicker = null;
 let aiCurrentData = null;
 let aiChatMessages = [];
 
+
+window.saveAIFundamentals = async function(ticker) {
+  const fv = document.getElementById("aiFVInput")?.value || null;
+  const upside = parseFloat(document.getElementById("aiUpsideInput")?.value) || null;
+  const pe = parseFloat(document.getElementById("aiPEInput")?.value) || null;
+  const cf = document.getElementById("aiCFInput")?.value || null;
+
+  // Update in memory
+  const pos = positions.find(p => p.ticker === ticker);
+  if (pos) {
+    if (fv) pos.fairValueLabel = fv;
+    if (upside != null) pos.analystUpside = upside;
+    if (pe != null) pos.pe = pe;
+    if (cf) pos.cashFlowLabel = cf;
+    // Save to Supabase
+    try {
+      await sbFetch(`positions?id=eq.${pos.id}`, "PATCH", {
+        fair_value_label: fv, analyst_upside: upside, pe, cash_flow_label: cf
+      });
+    } catch(e) { console.error(e); }
+  }
+
+  // Update aiCurrentData
+  if (aiCurrentData) {
+    aiCurrentData.fund = {
+      fairValueLabel: fv, analystUpside: upside, pe, cashFlowLabel: cf
+    };
+  }
+
+  // Hide form and refresh tech data
+  document.getElementById("aiFundInput").style.display = "none";
+  renderAITechData(pos, aiCurrentData?.wl, aiCurrentData?.fund);
+};
+
 window.openAIAnalysis = async function(ticker) {
   aiCurrentTicker = ticker;
   aiChatMessages = [];
@@ -3869,7 +3906,7 @@ window.openAIAnalysis = async function(ticker) {
   // Ricarica fondamentali freschi da Supabase
   try {
     const tickerClean = ticker.trim().toUpperCase();
-    const fresh = await sbFetch(`positions?select=fair_value_label,analyst_upside,pe,cash_flow_label&user_id=eq.${currentUser}&ticker=eq.${encodeURIComponent(tickerClean)}&limit=1`);
+    const fresh = await sbFetch(`positions?select=fair_value_label,analyst_upside,pe,cash_flow_label&user_id=eq.${currentUser}&ticker=eq.${tickerClean}&limit=1`);
     if (fresh && fresh.length > 0 && fresh[0]) {
       const posInMem = positions.find(p => p.ticker.trim().toUpperCase() === tickerClean);
       if (posInMem) {
@@ -3924,6 +3961,54 @@ window.openAIAnalysis = async function(ticker) {
   // Set title
   const name = pos?.name || wl?.name || ticker;
   document.getElementById("aiModalTitle").textContent = `🤖 ${ticker} — ${name}`;
+
+  // Show fundamentals input if missing on position
+  const fundWrap = document.getElementById("aiFundInput");
+  if (fundWrap) {
+    const hasFund = mergedFund.fairValueLabel || mergedFund.analystUpside != null || mergedFund.pe != null;
+    if (pos && !hasFund) {
+      fundWrap.style.display = "block";
+      fundWrap.innerHTML = `
+        <div style="background:#ffd23f11;border:1px solid #ffd23f44;border-radius:8px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:10px;color:#ffd23f;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;">⚠ Fondamentali mancanti — inserisci qui o usa ✎ modifica</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
+            <div>
+              <div style="font-size:9px;color:var(--dim);margin-bottom:4px;">FAIR VALUE</div>
+              <select id="aiFVInput" style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:6px;border-radius:6px;font-size:11px;">
+                <option value="">-- seleziona --</option>
+                <option>Affare</option><option>Sottovalutato</option>
+                <option>Moderatamente sottovalutato</option><option>Fair</option>
+                <option>Moderatamente sopravvalutato</option><option>Sopravvalutato</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--dim);margin-bottom:4px;">RIALZO ANALISTI %</div>
+              <input type="number" id="aiUpsideInput" placeholder="es. 25.5" step="any"
+                style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:6px;border-radius:6px;font-size:11px;">
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--dim);margin-bottom:4px;">P/E RATIO</div>
+              <input type="number" id="aiPEInput" placeholder="es. 18.5" step="any"
+                style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:6px;border-radius:6px;font-size:11px;">
+            </div>
+            <div>
+              <div style="font-size:9px;color:var(--dim);margin-bottom:4px;">CASH FLOW</div>
+              <select id="aiCFInput" style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:6px;border-radius:6px;font-size:11px;">
+                <option value="">-- seleziona --</option>
+                <option>Eccellente</option><option>Ottima</option><option>Buona</option>
+                <option>Nella media</option><option>Debole</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="saveAIFundamentals('${ticker}')" 
+            style="margin-top:10px;background:var(--gold);color:#111;border:none;border-radius:6px;padding:7px 16px;font-size:11px;font-weight:700;cursor:pointer;">
+            💾 Salva e Applica
+          </button>
+        </div>`;
+    } else {
+      fundWrap.style.display = "none";
+    }
+  }
 
   // Score badge
   const score = pos?.compositeScore || wl?.compositeScore;
