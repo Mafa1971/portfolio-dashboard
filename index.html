@@ -3924,6 +3924,9 @@ window.openAIAnalysis = async function(ticker) {
   const pos = positions.find(p => p.ticker === ticker);
   const wl = watchlist.find(w => w.ticker === ticker);
   const fund = fundamentals[ticker] || {};
+  console.log("AI Debug - pos fundamentals:", pos?.fairValueLabel, pos?.analystUpside, pos?.pe);
+  console.log("AI Debug - fund:", fund);
+  console.log("AI Debug - wl:", wl?.fairValueLabel);
   
   // Merge fundamentals from all sources
   const mergedFund = {
@@ -4133,6 +4136,14 @@ async function loadAIChart(ticker, range) {
     if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
     if (aiVolumeChart) { aiVolumeChart.destroy(); aiVolumeChart = null; }
 
+    // Save last volume for card display
+    if (aiCurrentData && volumes.length > 0) {
+      aiCurrentData._lastVolume = volumes[volumes.length-1];
+      aiCurrentData._lastVolMA = volSma20[volSma20.length-1];
+      // Re-render tech data with volume info
+      setTimeout(() => renderAITechData(aiCurrentData.pos, aiCurrentData.wl, aiCurrentData.fund), 100);
+    }
+
     aiLineChart = new Chart(canvasWrap.getContext("2d"), {
       type: "line",
       data: {
@@ -4212,6 +4223,17 @@ function renderAITechData(pos, wl, fund) {
   const dpo = pos?.dpo?.text || wl?.dpo?.text || "--";
   const sent = pos?.sentiment?.text || wl?.sentiment?.text || "--";
 
+  // Volume vs MA check from last fetched chart data
+  let volCard = { l: "Volume", v: "--", col: "var(--dim)" };
+  const lastVol = aiCurrentData?._lastVolume;
+  const lastVolMA = aiCurrentData?._lastVolMA;
+  if (lastVol && lastVolMA) {
+    const ratio = lastVol / lastVolMA;
+    if (ratio > 1.5) volCard = { l: "Volume", v: `📢 ${(ratio).toFixed(1)}x MA`, col: "#00d4b8" };
+    else if (ratio > 1.2) volCard = { l: "Volume", v: `↑ ${(ratio).toFixed(1)}x MA`, col: "#80ed99" };
+    else volCard = { l: "Volume", v: `Normale`, col: "var(--dim)" };
+  }
+
   const items = [
     { l: "Score", v: score ? score.toFixed(1) : "--", col: score>=7?"#00d4b8":score>=5?"#80ed99":score>=3?"#ffd23f":"#ff6b6b" },
     { l: "Segnale", v: signal, col: signalCol },
@@ -4221,6 +4243,7 @@ function renderAITechData(pos, wl, fund) {
     { l: "Fair Value", v: fv, col: fv==="Sottovalutato"?"#00d4b8":fv==="Sopravvalutato"?"#ff6b6b":"#ffd23f" },
     { l: "Rialzo Anal.", v: upside ? (upside>0?"+":"")+upside+"%" : "--", col: upside>0?"#00d4b8":"#ff6b6b" },
     { l: "P/E", v: pe ? pe+"x" : "--", col: pe&&pe<15?"#00d4b8":pe&&pe>30?"#ff6b6b":"var(--dim)" },
+    volCard,
   ];
 
   wrap.innerHTML = items.map(i => `
