@@ -3569,24 +3569,74 @@ function renderWatchlist() {
     wrap.innerHTML = `<div class="empty-state"><p>NESSUN TITOLO IN WATCHLIST</p></div>`;
     return;
   }
-  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
+
+  // Sort and filter state
+  const sortBy = window.wlSortBy || "score";
+  const sortDir = window.wlSortDir || "desc";
+  const minScore = parseFloat(window.wlMinScore || "0");
+  const filterSector = window.wlFilterSector || "";
+
+  // Get unique sectors
+  const sectors = [...new Set(watchlist.map(w => w.sector || "Altro").filter(Boolean))].sort();
+
+  // Filter and sort
+  let filtered = watchlist.filter(w => {
+    if (minScore > 0 && (w.compositeScore || 0) < minScore) return false;
+    if (filterSector && w.sector !== filterSector) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    let va, vb;
+    if (sortBy === "score") { va = a.compositeScore || 0; vb = b.compositeScore || 0; }
+    else if (sortBy === "rsi") { va = a.rsi || 0; vb = b.rsi || 0; }
+    else if (sortBy === "upside") { va = a.analystUpside || 0; vb = b.analystUpside || 0; }
+    else if (sortBy === "ticker") { va = a.ticker; vb = b.ticker; return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va); }
+    else { va = a.compositeScore || 0; vb = b.compositeScore || 0; }
+    return sortDir === "asc" ? va - vb : vb - va;
+  });
+
+  // Sort header helper
+  const sortTh = (label, key) => {
+    const active = sortBy === key;
+    const arrow = active ? (sortDir === "desc" ? " ↓" : " ↑") : "";
+    return `<th onclick="wlSort('${key}')" style="cursor:pointer;text-align:center;padding:6px 8px;font-size:9px;color:${active?'var(--gold)':'var(--dim)'};letter-spacing:1px;user-select:none;">${label}${arrow}</th>`;
+  };
+
+  let h = `
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+    <span style="font-size:10px;color:var(--dim);">Filtri:</span>
+    <select onchange="window.wlMinScore=this.value;renderWatchlist()" 
+      style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:5px 8px;border-radius:6px;font-size:11px;">
+      <option value="0" ${minScore===0?'selected':''}>Tutti gli score</option>
+      <option value="5" ${minScore===5?'selected':''}>Score ≥ 5 (BUY)</option>
+      <option value="7" ${minScore===7?'selected':''}>Score ≥ 7 (STRONG BUY)</option>
+    </select>
+    <select onchange="window.wlFilterSector=this.value;renderWatchlist()"
+      style="background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:5px 8px;border-radius:6px;font-size:11px;">
+      <option value="">Tutti i settori</option>
+      ${sectors.map(s=>`<option value="${s}" ${filterSector===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+    <span style="font-size:10px;color:var(--dim);margin-left:auto;">${filtered.length} / ${watchlist.length} titoli</span>
+  </div>
+  <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
     <tr style="border-bottom:1px solid var(--line);">
-      <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">TICKER</th>
+      <th onclick="wlSort('ticker')" style="cursor:pointer;text-align:left;padding:6px 8px;font-size:9px;color:${sortBy==='ticker'?'var(--gold)':'var(--dim)'};letter-spacing:1px;user-select:none;">TICKER${sortBy==='ticker'?(sortDir==='desc'?' ↓':' ↑'):''}</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">VAR%</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">52W</th>
-      <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">SCORE</th>
+      ${sortTh("SCORE","score")}
       <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">FAIR VALUE</th>
-      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RIALZO</th>
+      ${sortTh("RIALZO","upside")}
       <th style="text-align:center;padding:6px 8px;font-size:9px;color:var(--dim);">CASH FLOW</th>
-      <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">RSI</th>
+      ${sortTh("RSI","rsi")}
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">+MIN52</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P/E</th>
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE</th>
       <th style="padding:4px;"></th>
     </tr>`;
 
-  watchlist.forEach(w => {
+  filtered.forEach(w => {
     const sym = w.currency === "EUR" ? "€" : "$";
     const chg = w.changePct;
     const chgColor = chg == null ? "var(--dim)" : chg >= 0 ? "#00d4b8" : "#ff6b6b";
@@ -3674,6 +3724,16 @@ function renderWatchlist() {
   h += "</table></div>";
   wrap.innerHTML = h;
 }
+
+window.wlSort = function(key) {
+  if (window.wlSortBy === key) {
+    window.wlSortDir = window.wlSortDir === "desc" ? "asc" : "desc";
+  } else {
+    window.wlSortBy = key;
+    window.wlSortDir = "desc";
+  }
+  renderWatchlist();
+};
 
 function renderRebalance() {
   const wrap = document.getElementById("rebalanceWrap");
@@ -3806,19 +3866,20 @@ window.openAIAnalysis = async function(ticker) {
   aiCurrentTicker = ticker;
   aiChatMessages = [];
 
-  // Ricarica solo i fondamentali freschi da Supabase per questo ticker
+  // Ricarica fondamentali freschi da Supabase
   try {
-    const fresh = await sbFetch(`positions?select=fair_value_label,analyst_upside,pe,cash_flow_label&user_id=eq.${currentUser}&ticker=eq.${ticker}&limit=1`);
-    if (fresh && fresh.length > 0) {
-      const pos = positions.find(p => p.ticker === ticker);
-      if (pos) {
-        pos.fairValueLabel = fresh[0].fair_value_label || pos.fairValueLabel;
-        pos.analystUpside = fresh[0].analyst_upside || pos.analystUpside;
-        pos.pe = fresh[0].pe || pos.pe;
-        pos.cashFlowLabel = fresh[0].cash_flow_label || pos.cashFlowLabel;
+    const tickerClean = ticker.trim().toUpperCase();
+    const fresh = await sbFetch(`positions?select=fair_value_label,analyst_upside,pe,cash_flow_label&user_id=eq.${currentUser}&ticker=eq.${encodeURIComponent(tickerClean)}&limit=1`);
+    if (fresh && fresh.length > 0 && fresh[0]) {
+      const posInMem = positions.find(p => p.ticker.trim().toUpperCase() === tickerClean);
+      if (posInMem) {
+        if (fresh[0].fair_value_label) posInMem.fairValueLabel = fresh[0].fair_value_label;
+        if (fresh[0].analyst_upside != null) posInMem.analystUpside = fresh[0].analyst_upside;
+        if (fresh[0].pe != null) posInMem.pe = fresh[0].pe;
+        if (fresh[0].cash_flow_label) posInMem.cashFlowLabel = fresh[0].cash_flow_label;
       }
     }
-  } catch(e) {}
+  } catch(e) { console.error("Fund reload error:", e); }
 
   // Find data from positions or watchlist
   const pos = positions.find(p => p.ticker === ticker);
