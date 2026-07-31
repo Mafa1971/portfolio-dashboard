@@ -4184,12 +4184,27 @@ async function loadAIChart(ticker, range) {
     if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
     if (aiVolumeChart) { aiVolumeChart.destroy(); aiVolumeChart = null; }
 
-    // Save last volume for card display
-    if (aiCurrentData && volumes.length > 0) {
-      aiCurrentData._lastVolume = volumes[volumes.length-1];
-      aiCurrentData._lastVolMA = volSma20[volSma20.length-1];
-      // Re-render tech data with volume info
-      setTimeout(() => renderAITechData(aiCurrentData.pos, aiCurrentData.wl, aiCurrentData.fund), 100);
+    // Save volume and risk metrics for cards
+    if (aiCurrentData && closes.length > 10) {
+      aiCurrentData._lastVolume = volumes[volumes.length-1] || null;
+      aiCurrentData._lastVolMA = volSma20[volSma20.length-1] || null;
+      // Risk metrics from closes
+      const validC = closes.filter(v => v != null);
+      const rets = validC.slice(1).map((c,i) => (c - validC[i]) / validC[i]);
+      // Max Drawdown
+      let peak = validC[0], maxDD = 0;
+      for (const c of validC) { if (c > peak) peak = c; const d = (c-peak)/peak*100; if (d < maxDD) maxDD = d; }
+      aiCurrentData._maxDD = parseFloat(maxDD.toFixed(1));
+      // Sharpe & Sortino
+      const rfDaily = 0.035/252;
+      const avgRet = rets.reduce((a,b)=>a+b,0)/rets.length;
+      const stdDev = Math.sqrt(rets.reduce((a,r)=>a+Math.pow(r-avgRet,2),0)/rets.length)*Math.sqrt(252);
+      const downR = rets.filter(r => r < rfDaily);
+      const downDev = downR.length > 5 ? Math.sqrt(downR.reduce((a,r)=>a+Math.pow(r-rfDaily,2),0)/downR.length)*Math.sqrt(252) : null;
+      aiCurrentData._sharpe = stdDev > 0 ? parseFloat(((avgRet*252-0.035)/stdDev).toFixed(2)) : null;
+      aiCurrentData._sortino = downDev ? parseFloat(((avgRet*252-0.035)/downDev).toFixed(2)) : null;
+      aiCurrentData._volatility = parseFloat((stdDev*100).toFixed(1));
+      setTimeout(() => renderAITechData(aiCurrentData.pos, aiCurrentData.wl, aiCurrentData.fund), 200);
     }
 
     aiLineChart = new Chart(canvasWrap.getContext("2d"), {
@@ -4282,6 +4297,17 @@ function renderAITechData(pos, wl, fund) {
     else volCard = { l: "Volume", v: `Normale`, col: "var(--dim)" };
   }
 
+  // Risk metrics from cached chart data
+  const maxDD = aiCurrentData?._maxDD;
+  const sortino = aiCurrentData?._sortino;
+  const sharpe = aiCurrentData?._sharpe;
+  const volatility = aiCurrentData?._volatility;
+
+  const ddCard = { l: "Max Drawdown", v: maxDD != null ? maxDD.toFixed(1)+"%" : "--", col: maxDD>-5?"#00d4b8":maxDD>-10?"#80ed99":maxDD>-20?"#ffd23f":maxDD>-30?"#ff9f1c":"#ff6b6b" };
+  const sortinoCard = { l: "Sortino", v: sortino != null ? sortino.toFixed(2) : "--", col: sortino>2?"#00d4b8":sortino>1?"#80ed99":sortino>0.5?"#ffd23f":sortino!=null?"#ff6b6b":"var(--dim)" };
+  const sharpeCard = { l: "Sharpe", v: sharpe != null ? sharpe.toFixed(2) : "--", col: sharpe>1.5?"#00d4b8":sharpe>0.5?"#80ed99":sharpe>0?"#ffd23f":sharpe!=null?"#ff6b6b":"var(--dim)" };
+  const volCard2 = { l: "Volatilità", v: volatility != null ? volatility.toFixed(1)+"%" : "--", col: volatility<15?"#00d4b8":volatility<25?"#ffd23f":volatility<35?"#ff9f1c":"#ff6b6b" };
+
   const items = [
     { l: "Score", v: score ? score.toFixed(1) : "--", col: score>=7?"#00d4b8":score>=5?"#80ed99":score>=3?"#ffd23f":"#ff6b6b" },
     { l: "Segnale", v: signal, col: signalCol },
@@ -4289,9 +4315,13 @@ function renderAITechData(pos, wl, fund) {
     { l: "DPO", v: dpo, col: dpo==="Forte"?"#00d4b8":dpo==="Recupero"?"#80ed99":"var(--dim)" },
     { l: "Sentiment", v: sent, col: sent==="Risk-On"?"#00d4b8":"var(--dim)" },
     { l: "Fair Value", v: fv, col: fv==="Sottovalutato"?"#00d4b8":fv==="Sopravvalutato"?"#ff6b6b":"#ffd23f" },
-    { l: "Rialzo Anal.", v: upside ? (upside>0?"+":"")+upside+"%" : "--", col: upside>0?"#00d4b8":"#ff6b6b" },
+    { l: "Rialzo Anal.", v: upside != null ? (upside>0?"+":"")+upside+"%" : "--", col: upside>0?"#00d4b8":"#ff6b6b" },
     { l: "P/E", v: pe ? pe+"x" : "--", col: pe&&pe<15?"#00d4b8":pe&&pe>30?"#ff6b6b":"var(--dim)" },
     volCard,
+    ddCard,
+    sortinoCard,
+    sharpeCard,
+    volCard2,
   ];
 
   wrap.innerHTML = items.map(i => `
