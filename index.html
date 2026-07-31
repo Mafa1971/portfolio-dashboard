@@ -1807,57 +1807,83 @@ function calcSentiment(closes, highs, lows, rsi) {
   return { score, text, color };
 }
 
-function calcCompositeScore(closes, highs, lows, fundamentalData = {}) {
-  // Tecnico (0-7 come Pine Script)
-  const price = closes[closes.length - 1];
-  const sma50 = calcSMA(closes, 50);
-  const sma200 = calcSMA(closes, 200);
-  const rsi = calcRSI(closes, 14);
-  const { macd, signal } = calcMACD(closes);
-  const ichimoku = calcIchimoku(closes, highs, lows);
+function calcCompositeScore(closes, highs, lows, fundamentalData, volumes) {
+  fundamentalData = fundamentalData || {};
+  volumes = volumes || [];
+  const validCloses = (closes || []).filter(v => v != null);
+  if (validCloses.length < 20) {
+    return { composite: 5, techScore: 0, techNorm: 5, fundScore: 5, riskScore: 5, techRating: "Neutral", techColor: "#ffd23f", rsi: null };
+  }
+  const pr = validCloses[validCloses.length - 1];
+  const returns = validCloses.slice(1).map((c, i) => (c - validCloses[i]) / validCloses[i]);
 
-  let techScore = 0;
-  if (sma50) techScore += price > sma50 ? 1 : -1;
-  if (sma200) techScore += price > sma200 ? 1 : -1;
-  if (sma50 && sma200) techScore += sma50 > sma200 ? 1 : -1;
-  if (rsi) techScore += rsi > 50 ? 1 : rsi < 30 ? 1 : -1;
-  if (macd && signal) techScore += macd > signal ? 1 : -1;
-  if (ichimoku.aboveKumo !== null) techScore += ichimoku.aboveKumo ? 1 : ichimoku.belowKumo ? -1 : 0;
-  if (ichimoku.tenkanAboveKijun !== null) techScore += ichimoku.tenkanAboveKijun ? 1 : -1;
+  // TECNICO (40%)
+  let tp = 0;
+  const sma21 = calcSMA(validCloses, 21);
+  const sma50 = calcSMA(validCloses, 50);
+  const sma200 = calcSMA(validCloses, 200);
+  const rsi = calcRSI(validCloses, 14);
+  const { macd, signal, histogram } = calcMACD(validCloses);
+  const ichimoku = calcIchimoku(validCloses, highs, lows);
 
-  // Normalizza techScore da [-7,7] a [0,10]
-  const techNorm = ((techScore + 7) / 14) * 10;
+  if (sma21) tp += pr > sma21 ? 1 : -1;
+  if (sma50) tp += pr > sma50 ? 1 : -1;
+  if (sma200) tp += pr > sma200 ? 1 : -1;
+  if (sma50 && sma200) tp += sma50 > sma200 ? 1 : -1;
+  if (rsi) { if (rsi > 70) tp -= 1.5; else if (rsi > 60) tp += 0.5; else if (rsi > 50) tp += 1; else if (rsi < 30) tp += 1.5; else if (rsi < 40) tp -= 0.5; else tp -= 0.5; }
+  if (macd && signal) { tp += macd > signal ? 1 : -1; if (histogram) tp += histogram > 0 ? 0.5 : -0.5; }
+  if (ichimoku.aboveKumo !== null) tp += ichimoku.aboveKumo ? 1 : ichimoku.belowKumo ? -1 : 0;
+  if (ichimoku.tenkanAboveKijun !== null) tp += ichimoku.tenkanAboveKijun ? 0.5 : -0.5;
+  if (volumes && volumes.length >= 10) {
+    const vols = volumes.filter(v => v != null && v > 0);
+    if (vols.length >= 10) {
+      const avgV = vols.slice(-20).reduce((a,b)=>a+b,0)/Math.min(20,vols.length);
+      const ratio = vols[vols.length-1]/avgV;
+      const isUp = validCloses[validCloses.length-1] > validCloses[validCloses.length-2];
+      if (ratio > 1.5) tp += isUp ? 1 : -1; else if (ratio > 1.2) tp += isUp ? 0.5 : -0.5;
+    }
+  }
+  const techNorm = Math.max(0, Math.min(10, ((tp + 10) / 20) * 10));
 
-  // Fondamentale (0-10)
-  let fundScore = 5; // neutro
-  const { fairValueLabel, analystUpside, pe, cashFlowLabel } = fundamentalData;
-  if (fairValueLabel === "Sottovalutato") fundScore += 2;
-  else if (fairValueLabel === "Moderatamente sottovalutato") fundScore += 1;
-  else if (fairValueLabel === "Sopravvalutato") fundScore -= 2;
-  else if (fairValueLabel === "Moderatamente sopravvalutato") fundScore -= 1;
-  if (analystUpside > 30) fundScore += 2;
-  else if (analystUpside > 15) fundScore += 1;
-  else if (analystUpside < 0) fundScore -= 1;
-  if (pe && pe < 15) fundScore += 1;
-  else if (pe && pe > 30) fundScore -= 1;
-  if (cashFlowLabel === "Eccellente" || cashFlowLabel === "Ottima") fundScore += 1;
-  else if (cashFlowLabel === "Debole") fundScore -= 1;
-  fundScore = Math.max(0, Math.min(10, fundScore));
+  // FONDAMENTALE (35%)
+  let fp = 5;
+  const { fairValueLabel, analystUpside, pe, cashFlowLabel, piotroski, debtEquity, roic, revenueGrowth, ebitdaMargin, pegRatio, netMargin } = fundamentalData;
+  if (fairValueLabel === "Affare") fp += 2; else if (fairValueLabel === "Sottovalutato") fp += 1.5; else if (fairValueLabel === "Moderatamente sottovalutato") fp += 0.75; else if (fairValueLabel === "Moderatamente sopravvalutato") fp -= 0.75; else if (fairValueLabel === "Sopravvalutato") fp -= 1.5;
+  if (analystUpside != null) { if (analystUpside > 40) fp += 2; else if (analystUpside > 25) fp += 1.5; else if (analystUpside > 15) fp += 1; else if (analystUpside > 5) fp += 0.5; else if (analystUpside < 0) fp -= 1; }
+  if (pe != null && pe > 0) { if (pe < 10) fp += 1; else if (pe < 15) fp += 0.75; else if (pe < 20) fp += 0.25; else if (pe > 40) fp -= 1; else if (pe > 30) fp -= 0.5; }
+  if (cashFlowLabel === "Eccellente" || cashFlowLabel === "Ottima") fp += 0.75; else if (cashFlowLabel === "Buona") fp += 0.25; else if (cashFlowLabel === "Debole") fp -= 0.75;
+  if (piotroski != null) { if (piotroski >= 7) fp += 1.5; else if (piotroski >= 5) fp += 0.75; else if (piotroski <= 2) fp -= 1; }
+  if (debtEquity != null) { if (debtEquity < 0.3) fp += 1; else if (debtEquity < 0.7) fp += 0.5; else if (debtEquity > 2) fp -= 1; else if (debtEquity > 1.5) fp -= 0.5; }
+  if (roic != null) { if (roic > 20) fp += 1; else if (roic > 12) fp += 0.5; else if (roic < 5) fp -= 0.5; }
+  if (revenueGrowth != null) { if (revenueGrowth > 20) fp += 0.75; else if (revenueGrowth > 10) fp += 0.5; else if (revenueGrowth > 0) fp += 0.25; else if (revenueGrowth < -10) fp -= 0.5; }
+  if (ebitdaMargin != null) { if (ebitdaMargin > 30) fp += 0.5; else if (ebitdaMargin > 15) fp += 0.25; else if (ebitdaMargin < 5) fp -= 0.5; }
+  if (pegRatio != null && pegRatio > 0) { if (pegRatio < 1) fp += 0.5; else if (pegRatio > 2) fp -= 0.5; }
+  if (netMargin != null) { if (netMargin > 20) fp += 0.5; else if (netMargin > 10) fp += 0.25; else if (netMargin < 0) fp -= 0.75; }
+  const fundScore = Math.max(0, Math.min(10, fp));
 
-  // Score composito pesato
-  const composite = (techNorm * 0.6 + fundScore * 0.4);
+  // RISCHIO (25%)
+  let rp = 5;
+  const rf = 0.035/252;
+  const downR = returns.filter(r=>r<rf);
+  if (returns.length >= 30 && downR.length > 0) {
+    const avgR = returns.reduce((a,b)=>a+b,0)/returns.length;
+    const dd = Math.sqrt(downR.reduce((a,r)=>a+Math.pow(r-rf,2),0)/downR.length)*Math.sqrt(252);
+    if (dd > 0) { const s=(avgR*252-0.035)/dd; if(s>2)rp+=2; else if(s>1.5)rp+=1.5; else if(s>1)rp+=1; else if(s>0.5)rp+=0.5; else if(s<0)rp-=1.5; else rp-=0.5; }
+  }
+  let peak=validCloses[0],maxDD=0;
+  for(const c of validCloses){if(c>peak)peak=c;const d=(c-peak)/peak*100;if(d<maxDD)maxDD=d;}
+  if(maxDD>-5)rp+=1.5;else if(maxDD>-10)rp+=1;else if(maxDD>-20)rp+=0.5;else if(maxDD>-30)rp-=0.5;else if(maxDD<-40)rp-=1.5;
+  if(returns.length>=20){const avg=returns.reduce((a,b)=>a+b,0)/returns.length;const vol=Math.sqrt(returns.reduce((a,r)=>a+Math.pow(r-avg,2),0)/returns.length)*Math.sqrt(252)*100;if(vol<10)rp+=1;else if(vol<20)rp+=0.5;else if(vol>40)rp-=1;else if(vol>30)rp-=0.5;}
+  const riskScore = Math.max(0, Math.min(10, rp));
 
-  // Rating text
-  const techRating = techScore >= 5 ? "Strong Buy" : techScore >= 2 ? "Buy" : techScore >= -1 ? "Neutral" : techScore >= -4 ? "Sell" : "Strong Sell";
-  const techColor = techScore >= 5 ? "#00d4b8" : techScore >= 2 ? "#80ed99" : techScore >= -1 ? "#ffd23f" : techScore >= -4 ? "#ff9f1c" : "#ff6b6b";
+  // SCORE FINALE
+  const composite = parseFloat((techNorm*0.40+fundScore*0.35+riskScore*0.25).toFixed(1));
+  const techRating = composite>=8?"STRONG BUY":composite>=6?"BUY":composite>=4?"Neutral":composite>=2?"Sell":"Strong Sell";
+  const techColor = composite>=8?"#00d4b8":composite>=6?"#80ed99":composite>=4?"#ffd23f":composite>=2?"#ff9f1c":"#ff6b6b";
 
-  return {
-    composite: parseFloat(composite.toFixed(1)),
-    techScore, techNorm: parseFloat(techNorm.toFixed(1)),
-    fundScore, techRating, techColor,
-    rsi, sma50, sma200, macd, signal, ichimoku
-  };
+  return { composite, techScore:tp, techNorm:parseFloat(techNorm.toFixed(1)), fundScore:parseFloat(fundScore.toFixed(1)), riskScore:parseFloat(riskScore.toFixed(1)), techRating, techColor, rsi, sma21, sma50, sma200, macd, signal, ichimoku, maxDrawdown:parseFloat(maxDD.toFixed(1)) };
 }
+
 
 function calcRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
@@ -2595,14 +2621,22 @@ async function refreshAllPrices() {
       positions[i].dpo = data.dpo;
       positions[i].sentiment = data.sentiment;
       positions[i].ichimoku = data.ichimoku;
-      // Calcola score composito
+      // Calcola score composito con tutti i fondamentali disponibili
       const f = fundamentals[positions[i].ticker] || {};
+      const pos = positions[i];
       const scoreData = calcCompositeScore(data.closes, data.highs, data.lows, {
-        fairValueLabel: f.fairValueLabel,
-        analystUpside: f.analystUpside,
-        pe: f.pe || data.pe,
-        cashFlowLabel: f.cashFlowLabel
-      });
+        fairValueLabel: f.fairValueLabel || pos.fairValueLabel,
+        analystUpside: f.analystUpside || pos.analystUpside,
+        pe: f.pe || pos.pe || data.pe,
+        cashFlowLabel: f.cashFlowLabel || pos.cashFlowLabel,
+        piotroski: f.piotroski || pos.piotroski,
+        debtEquity: f.debtEquity || pos.debtEquity,
+        roic: f.roic || pos.roic,
+        revenueGrowth: f.revenueGrowth || pos.revenueGrowth,
+        ebitdaMargin: f.ebitdaMargin || pos.ebitdaMargin,
+        pegRatio: f.pegRatio || pos.pegRatio,
+        netMargin: f.netMargin || pos.netMargin
+      }, data.volumes || []);
       positions[i].compositeScore = scoreData.composite;
       positions[i].techScore = scoreData.techScore;
       positions[i].techRating = scoreData.techRating;
@@ -3302,11 +3336,15 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
         const colFairLabel = iIdx("etichetta fair value") !== -1 ? iIdx("etichetta fair value") : (iIdx("fair value") !== -1 ? iIdx("fair value") : 7);
         const colPE = iIdx("prezzo/utile") !== -1 ? iIdx("prezzo/utile") : (iIdx("ratio prezzo") !== -1 ? iIdx("ratio prezzo") : (iIdx("p/e") !== -1 ? iIdx("p/e") : 17));
         const colMktCap = iIdx("capitaliz") !== -1 ? iIdx("capitaliz") : (iIdx("market cap") !== -1 ? iIdx("market cap") : 11);
-        const colPiotroski = iIdx("piotroski") !== -1 ? iIdx("piotroski") : -1;
-        const colDebtEq = iIdx("debito / equity") !== -1 ? iIdx("debito / equity") : -1;
-        const colRSI = iIdx("forza relativa") !== -1 ? iIdx("forza relativa") : -1;
-        console.log("WL Import headers:", headers);
-        console.log("Cols:", {colTicker, colNome, colSector, colFairLabel, colAnalystRialzo, colCashLabel, colPE});
+        const colPiotroski = iIdx("piotroski") !== -1 ? iIdx("piotroski") : (headers.length > 15 ? 15 : -1);
+        const colDebtEq = iIdx("debito / equity") !== -1 ? iIdx("debito / equity") : (iIdx("debt") !== -1 ? iIdx("debt") : -1);
+        const colRSI = iIdx("forza relativa") !== -1 ? iIdx("forza relativa") : (iIdx("rsi") !== -1 ? iIdx("rsi") : 18);
+        const colROIC = iIdx("ritorno sul capitale") !== -1 ? iIdx("ritorno sul capitale") : (iIdx("roic") !== -1 ? iIdx("roic") : -1);
+        const colRevGrowth = iIdx("crescita fatturato") !== -1 ? iIdx("crescita fatturato") : (iIdx("crescita") !== -1 ? iIdx("crescita") : -1);
+        const colEBITDA = iIdx("ebitda") !== -1 ? iIdx("ebitda") : -1;
+        const colPEG = iIdx("peg") !== -1 ? iIdx("peg") : -1;
+        const colNetMargin = iIdx("utile netto") !== -1 ? iIdx("utile netto") : -1;
+        console.log("WL Import - colonne trovate:", {colTicker, colNome, colSector, colFairLabel, colAnalystRialzo, colCashLabel, colPE, colPiotroski, colDebtEq, colRSI, colROIC});
         
         // Finviz format detection
         const isFinviz = headers.includes("company") || headers.includes("market cap (b)");
@@ -3342,9 +3380,14 @@ document.getElementById("watchExcelInput").addEventListener("change", (e) => {
               cashFlowLabel: colCashLabel !== -1 ? row[colCashLabel] || null : null,
               pe: colPE !== -1 && row[colPE] != null ? parseFloat(parseFloat(row[colPE]).toFixed(1)) : null,
               marketCap: colMktCap !== -1 && row[colMktCap] != null ? parseFloat((row[colMktCap]/1e9).toFixed(2)) : null,
-              piotroski: colPiotroski !== -1 ? row[colPiotroski] || null : null,
-              debtEquity: colDebtEq !== -1 && row[colDebtEq] != null ? parseFloat(row[colDebtEq].toFixed(2)) : null,
-              rsi: colRSI !== -1 && row[colRSI] != null ? parseFloat(row[colRSI].toFixed(1)) : null,
+              piotroski: colPiotroski !== -1 && row[colPiotroski] != null ? parseFloat(row[colPiotroski]) : null,
+              debtEquity: colDebtEq !== -1 && row[colDebtEq] != null ? parseFloat(parseFloat(row[colDebtEq]).toFixed(2)) : null,
+              rsi: colRSI !== -1 && row[colRSI] != null ? parseFloat(parseFloat(row[colRSI]).toFixed(1)) : null,
+              roic: colROIC !== -1 && row[colROIC] != null ? parseFloat((parseFloat(row[colROIC]) * (parseFloat(row[colROIC]) < 1 ? 100 : 1)).toFixed(1)) : null,
+              revenueGrowth: colRevGrowth !== -1 && row[colRevGrowth] != null ? parseFloat((parseFloat(row[colRevGrowth]) * (parseFloat(row[colRevGrowth]) < 1 ? 100 : 1)).toFixed(1)) : null,
+              ebitdaMargin: colEBITDA !== -1 && row[colEBITDA] != null ? parseFloat((parseFloat(row[colEBITDA]) * (parseFloat(row[colEBITDA]) < 1 ? 100 : 1)).toFixed(1)) : null,
+              pegRatio: colPEG !== -1 && row[colPEG] != null ? parseFloat(parseFloat(row[colPEG]).toFixed(2)) : null,
+              netMargin: colNetMargin !== -1 && row[colNetMargin] != null ? parseFloat((parseFloat(row[colNetMargin]) * (parseFloat(row[colNetMargin]) < 1 ? 100 : 1)).toFixed(1)) : null,
             });
           }
         });
@@ -3515,6 +3558,7 @@ async function fetchWatchPrice(ticker) {
         const closesY = (qY.close || []).filter(v => v != null);
         const highsY = qY.high || [];
         const lowsY = qY.low || [];
+        const volumesY = qY.volume || [];
         w._closes = closesY;
         w._highs = highsY;
         w._lows = lowsY;
@@ -3522,11 +3566,19 @@ async function fetchWatchPrice(ticker) {
           w.rsi = calcRSI(closesY, 14);
           const sd = calcCompositeScore(closesY, highsY, lowsY, {
             fairValueLabel: w.fairValueLabel, analystUpside: w.analystUpside,
-            pe: w.pe, cashFlowLabel: w.cashFlowLabel
-          });
+            pe: w.pe, cashFlowLabel: w.cashFlowLabel,
+            piotroski: w.piotroski, debtEquity: w.debtEquity,
+            roic: w.roic, revenueGrowth: w.revenueGrowth,
+            ebitdaMargin: w.ebitdaMargin, pegRatio: w.pegRatio,
+            netMargin: w.netMargin
+          }, volumesY);
           w.compositeScore = sd.composite;
+          w.techScore = sd.techNorm;
+          w.fundScore = sd.fundScore;
+          w.riskScore = sd.riskScore;
           w.techRating = sd.techRating;
           w.techColor = sd.techColor;
+          w.maxDrawdown = sd.maxDrawdown;
           // Add DPO and Sentiment
           w.dpo = calcDPO(closesY);
           w.sentiment = calcSentiment(closesY, highsY, lowsY, w.rsi);
