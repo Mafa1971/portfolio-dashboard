@@ -267,11 +267,6 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <div class="panel-title">RISCHIO PORTAFOGLIO</div>
     <div id="riskWrap"><div class="empty-state"><p>IMPOSTA GLI STOP LOSS PER VEDERE IL RISCHIO</p></div></div>
   </div>
-  <!-- NEWS -->
-  <div class="panel">
-    <div class="panel-title">NEWS POSIZIONI</div>
-    <div id="newsPositions"><div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div></div>
-  </div>
   <!-- CHARTS -->
   <div class="panel">
     <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
@@ -290,15 +285,6 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <div class="panel">
     <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
     <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
-  </div>
-  <!-- NEWS GENERALI -->
-  <div class="panel">
-    <div class="panel-title">MERCATI</div>
-    <div id="newsGeneral">
-      <div class="news-item"><a class="news-title" href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank">Yahoo Finance — Ultime notizie sui mercati →</a></div>
-      <div class="news-item"><a class="news-title" href="https://finance.yahoo.com/topic/economic-news/" target="_blank">Yahoo Finance — Notizie economiche →</a></div>
-      <div class="news-item"><a class="news-title" href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/finanza.html" target="_blank">Borsa Italiana — Notizie finanza →</a></div>
-    </div>
   </div>
 </div>
 
@@ -344,6 +330,36 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 
 <!-- TAB MERCATI -->
 <div id="tabMercati" class="tab-content">
+  <!-- NEWS MERCATI -->
+  <div class="panel">
+    <div class="panel-title">📰 NEWS MERCATI</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+      <a href="https://finance.yahoo.com/topic/stock-market-news/" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">📊 Yahoo Finance</div>
+        <div style="font-size:10px;color:var(--dim);">Ultime notizie mercati →</div>
+      </a>
+      <a href="https://finance.yahoo.com/topic/economic-news/" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">🌍 Notizie Economiche</div>
+        <div style="font-size:10px;color:var(--dim);">Yahoo Finance →</div>
+      </a>
+      <a href="https://www.borsaitaliana.it/borsa/notizie/teleborsa/finanza.html" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">🇮🇹 Borsa Italiana</div>
+        <div style="font-size:10px;color:var(--dim);">Notizie finanza →</div>
+      </a>
+      <a href="https://www.reuters.com/markets/" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">📡 Reuters Markets</div>
+        <div style="font-size:10px;color:var(--dim);">Notizie internazionali →</div>
+      </a>
+      <a href="https://www.bloomberg.com/markets" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">💹 Bloomberg</div>
+        <div style="font-size:10px;color:var(--dim);">Mercati finanziari →</div>
+      </a>
+      <a href="https://it.marketscreener.com/" target="_blank" style="display:block;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;text-decoration:none;color:var(--txt);">
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">🔍 MarketScreener</div>
+        <div style="font-size:10px;color:var(--dim);">Analisi e notizie →</div>
+      </a>
+    </div>
+  </div>
   <div class="panel">
     <div class="panel-title">CALENDARIO ECONOMICO</div>
     <div style="height:500px;">
@@ -945,6 +961,21 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;">📅 Storico Analisi Salvate</div>
       <div id="aiHistoryList" style="max-height:150px;overflow-y:auto;"></div>
     </div>
+  </div>
+</div>
+
+<!-- MODAL NEWS TICKER -->
+<div class="modal-overlay" id="modalNewsOverlay">
+  <div class="modal" style="max-width:680px;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 id="newsModalTitle" style="font-size:17px;">📰 News</h3>
+      <button onclick="document.getElementById('modalNewsOverlay').classList.remove('show')"
+        style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:20px;">✕</button>
+    </div>
+    <div id="newsModalContent">
+      <div class="empty-state"><p>Caricamento news...</p></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;" id="newsModalLinks"></div>
   </div>
 </div>
 
@@ -2930,6 +2961,7 @@ function renderTable() {
         <button class="icon-btn" onclick="openEditPosition('${p.id}')" title="Modifica" style="color:var(--blue)">✎</button>
         <button class="icon-btn" onclick="openTargetModal('${p.id}')" title="Target & Stop Loss" style="color:#ffd23f">🎯</button>
         <button class="icon-btn" onclick="openAIAnalysis('${p.ticker}')" title="Analisi AI" style="color:#00d4b8">🤖</button>
+        <button class="icon-btn" onclick="openNewsModal('${p.ticker}','${p.name||p.ticker}')" title="News" style="color:#ff9f1c">📰</button>
         <button class="icon-btn" onclick="openClosePosition('${p.id}')" title="Chiudi posizione" style="color:var(--grad2)">⊟</button>
         <button class="icon-btn" onclick="deletePosition('${p.id}')" title="Elimina">✕</button>
       </td>
@@ -3822,6 +3854,7 @@ function renderWatchlist() {
         <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica" style="color:var(--blue);">✎</button>
         <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">BUY</button>
         <button class="icon-btn" onclick="openAIAnalysis('${w.ticker}')" title="Analisi AI" style="color:#00d4b8">🤖</button>
+        <button class="icon-btn" onclick="openNewsModal('${w.ticker}','${w.name||w.ticker}')" title="News" style="color:#ff9f1c">📰</button>
         <button class="icon-btn" onclick="removeWatch('${w.ticker}')" title="Rimuovi" style="color:var(--coral);">✕</button>
       </td>
     </tr>`;
@@ -3972,7 +4005,76 @@ document.getElementById("btnLogout").addEventListener("click", () => {
 
 
 
-// ── AI ANALISI MODAL ──────────────────────────────────────────────────
+// ── NEWS MODAL ────────────────────────────────────────────────────────
+window.openNewsModal = async function(ticker, name) {
+  const titleEl = document.getElementById("newsModalTitle");
+  const contentEl = document.getElementById("newsModalContent");
+  const linksEl = document.getElementById("newsModalLinks");
+  if (!titleEl || !contentEl) return;
+
+  titleEl.textContent = `📰 News — ${ticker}`;
+  contentEl.innerHTML = `<div class="empty-state"><p>⏳ Caricamento news da Yahoo Finance...</p></div>`;
+  document.getElementById("modalNewsOverlay").classList.add("show");
+
+  // Build links
+  const tvUrl = getPortfolioTVUrl(ticker);
+  linksEl.innerHTML = `
+    <a href="https://finance.yahoo.com/quote/${ticker}/news" target="_blank"
+      style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;text-decoration:none;color:var(--txt);font-size:11px;font-weight:700;">
+      📊 Yahoo Finance News →
+    </a>
+    <a href="${tvUrl}" target="_blank"
+      style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;text-decoration:none;color:var(--txt);font-size:11px;font-weight:700;">
+      📈 TradingView →
+    </a>
+    <a href="https://it.marketscreener.com/ricerca/?q=${encodeURIComponent(name||ticker)}" target="_blank"
+      style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;text-decoration:none;color:var(--txt);font-size:11px;font-weight:700;">
+      🔍 MarketScreener →
+    </a>`;
+
+  // Fetch news via Yahoo proxy
+  try {
+    const url = `/.netlify/functions/yahoo?ticker=${encodeURIComponent(ticker)}&range=1d&interval=1d`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const newsItems = data?.chart?.result?.[0]?.events?.quotes || null;
+
+    // Show embedded Yahoo Finance news widget
+    contentEl.innerHTML = `
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--dim);margin-bottom:10px;">
+          Le news vengono caricate direttamente da Yahoo Finance. Clicca i link qui sotto per leggere gli articoli completi.
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:12px;">📰 ${ticker} — ${name||ticker}</div>
+          <div class="news-item">
+            <a class="news-title" href="https://finance.yahoo.com/quote/${ticker}/news" target="_blank" style="color:#4fa3ff;">
+              → Leggi tutte le news di ${ticker} su Yahoo Finance
+            </a>
+          </div>
+          <div class="news-item">
+            <a class="news-title" href="https://finance.yahoo.com/quote/${ticker}/analysis" target="_blank" style="color:#4fa3ff;">
+              → Analisi degli analisti su ${ticker}
+            </a>
+          </div>
+          <div class="news-item">
+            <a class="news-title" href="https://finance.yahoo.com/quote/${ticker}/financials" target="_blank" style="color:#4fa3ff;">
+              → Dati finanziari di ${ticker}
+            </a>
+          </div>
+          <div class="news-item">
+            <a class="news-title" href="https://finance.yahoo.com/quote/${ticker}/holders" target="_blank" style="color:#4fa3ff;">
+              → Principali azionisti di ${ticker}
+            </a>
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    contentEl.innerHTML = `<div style="font-size:11px;color:var(--dim);">Usa i link qui sotto per leggere le news.</div>`;
+  }
+};
+
+
 let aiCurrentTicker = null;
 let aiCurrentData = null;
 let aiChatMessages = [];
