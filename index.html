@@ -208,7 +208,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
   <div class="hdr-right">
     <span class="badge" id="lastUpdate">MAI AGGIORNATO</span>
-    <span id="autoRefreshBadge" style="display:none;font-size:9px;color:#00d4b8;letter-spacing:1px;padding:4px 8px;border:1px solid #00d4b844;border-radius:6px;">⟳ AUTO 15m</span>
+    <span id="autoRefreshBadge" style="display:none;font-size:9px;color:#00d4b8;letter-spacing:1px;padding:4px 8px;border:1px solid #00d4b844;border-radius:6px;">⟳ AUTO 30m</span>
     <button class="btn" id="btnAddPosition">+ NUOVA POSIZIONE</button>
     <button class="btn" id="btnBackupExport">💾 BACKUP</button>
     <button class="btn" id="btnBackupImport">📥 RIPRISTINA</button>
@@ -3522,16 +3522,18 @@ function startAutoRefresh() {
       document.getElementById("autoRefreshBadge").style.display = "none";
       return;
     }
-    if (watchlist.length === 0) return;
     document.getElementById("autoRefreshBadge").style.display = "inline";
-    console.log("Auto-refresh watchlist:", new Date().toLocaleTimeString());
-    await refreshWatchlist();
-  }, 15 * 60 * 1000);
+    console.log("Auto-refresh:", new Date().toLocaleTimeString());
+    // Aggiorna prezzi posizioni aperte
+    await refreshAllPrices();
+    // Aggiorna watchlist se presente
+    if (watchlist.length > 0) await refreshWatchlist();
+  }, 30 * 60 * 1000);
   // Show badge if in market hours
   if (isMarketHours()) {
     document.getElementById("autoRefreshBadge").style.display = "inline";
   }
-  console.log("Auto-refresh attivato — ogni 15 min dalle 9:00 alle 21:00");
+  console.log("Auto-refresh attivato — ogni 30 min dalle 9:00 alle 21:00");
 }
 
 function stopAutoRefresh() {
