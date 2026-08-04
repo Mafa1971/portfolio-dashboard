@@ -1098,12 +1098,24 @@ async function sbFetch(path, method = "GET", body = null) {
   return text ? JSON.parse(text) : [];
 }
 
+
+// ── TRADINGVIEW URL HELPER ────────────────────────────────────────────
+function getPortfolioTVUrl(ticker) {
+  let sym = ticker;
+  if (ticker.endsWith(".MI")) sym = "MIL:" + ticker.replace(".MI","").replace("STMMI","STM");
+  else if (ticker.endsWith(".PA")) sym = "EURONEXT:" + ticker.replace(".PA","");
+  else if (ticker.endsWith(".DE")) sym = "XETR:" + ticker.replace(".DE","");
+  else if (ticker.endsWith(".L"))  sym = "LSE:" + ticker.replace(".L","");
+  else if (ticker.endsWith(".ST")) sym = "OMX:" + ticker.replace(".ST","");
+  return "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(sym);
+}
+
 // ── LOAD ALL DATA FROM SUPABASE ───────────────────────────────────────
 async function loadAllData() {
   try {
     const [posData, closedData, fundData, targData] = await Promise.all([
-      sbFetch("positions?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
-      sbFetch("closed_lots?select=*&user_id=eq." + currentUser + "&order=created_at.asc"),
+      sbFetch("positions?select=*&user_id=eq." + currentUser + "&order=created_at.asc&limit=500"),
+      sbFetch("closed_lots?select=*&user_id=eq." + currentUser + "&order=created_at.asc&limit=500"),
       sbFetch("fundamentals?select=*&user_id=eq." + currentUser),
       sbFetch("targets?select=*&user_id=eq." + currentUser + "&limit=1")
     ]);
@@ -2752,13 +2764,47 @@ function renderTable() {
     return;
   }
 
+  // Sort positions
+  const posSortKey = window.posSortKey || "default";
+  const posSortDir = window.posSortDir || "asc";
+  const sortedPositions = [...positions].sort((a, b) => {
+    if (posSortKey === "ticker") {
+      return posSortDir === "asc" ? a.ticker.localeCompare(b.ticker) : b.ticker.localeCompare(a.ticker);
+    }
+    if (posSortKey === "pl") {
+      const pa = ((a.currentPrice||a.buyPrice) - a.buyPrice) / a.buyPrice * 100;
+      const pb = ((b.currentPrice||b.buyPrice) - b.buyPrice) / b.buyPrice * 100;
+      return posSortDir === "asc" ? pa - pb : pb - pa;
+    }
+    if (posSortKey === "score") {
+      return posSortDir === "asc" ? (a.compositeScore||0)-(b.compositeScore||0) : (b.compositeScore||0)-(a.compositeScore||0);
+    }
+    if (posSortKey === "value") {
+      const va = (a.currentPrice||a.buyPrice)*a.qty, vb = (b.currentPrice||b.buyPrice)*b.qty;
+      return posSortDir === "asc" ? va-vb : vb-va;
+    }
+    return 0;
+  });
+
+  const sortTh = (label, key) => {
+    const active = posSortKey === key;
+    const arrow = active ? (posSortDir === "asc" ? " ↑" : " ↓") : "";
+    return `<th onclick="posSort('${key}')" style="cursor:pointer;text-align:left;padding:6px 8px;font-size:9px;color:${active?'var(--gold)':'var(--dim)'};letter-spacing:1px;user-select:none;">${label}${arrow}</th>`;
+  };
+
   let h = `<table><tr>
-    <th>Ticker</th><th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>Var%</th><th>Val.Att.</th><th>P&amp;L %</th><th>P&amp;L Val.</th><th>Peso</th><th></th>
+    ${sortTh("Ticker","ticker")}
+    <th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>Var%</th>
+    ${sortTh("Val.Att.","value")}
+    ${sortTh("P&L %","pl")}
+    <th>P&L Val.</th><th>Peso</th>
+    ${sortTh("Score","score")}
+    <th></th>
   </tr>`;
 
   const stats = calcPortfolioStats();
 
-  positions.forEach(p => {
+  sortedPositions.forEach(p => {
     const price = p.currentPrice || p.buyPrice;
     const pl = ((price - p.buyPrice) / p.buyPrice) * 100;
     const plAbs = (price - p.buyPrice) * p.qty;
@@ -2856,9 +2902,9 @@ function renderTable() {
 
     h += `<tr>
       <td>
-        <a class="tick" href="https://finance.yahoo.com/quote/${p.ticker}" target="_blank">${p.ticker}</a>
+        <a class="tick" href="${getPortfolioTVUrl(p.ticker)}" target="_blank">${p.ticker}</a>
         <span class="icon-btn" onclick="openScheda('${p.ticker}')" title="Scheda titolo" style="cursor:pointer;color:var(--sun);font-size:11px;">📋</span>
-        <a href="https://finance.yahoo.com/chart/${p.ticker}" target="_blank" title="Grafico Yahoo" style="font-size:11px;text-decoration:none;">📈</a>
+        <a href="${getPortfolioTVUrl(p.ticker)}" target="_blank" title="Apri su TradingView" style="font-size:11px;text-decoration:none;">📈</a>
         ${p.isManual ? `<span class="manual-badge">M</span>` : ''}
         ${ratingBadge}${srBadge}
       </td>
@@ -3735,8 +3781,8 @@ function renderWatchlist() {
     h += `<tr style="border-top:1px solid #1a2030;${inPort?'background:#00d4b808;border-left:3px solid #00d4b844;':''}">
       <td style="padding:9px 8px;">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-          <a class="tick" href="https://finance.yahoo.com/quote/${w.ticker}" target="_blank" style="font-size:12px;">${w.ticker}</a>
-          <a href="https://finance.yahoo.com/chart/${w.ticker}" target="_blank" style="font-size:11px;text-decoration:none;">📈</a>
+          <a class="tick" href="${getPortfolioTVUrl(w.ticker)}" target="_blank" style="font-size:12px;">${w.ticker}</a>
+          <a href="${getPortfolioTVUrl(w.ticker)}" target="_blank" style="font-size:11px;text-decoration:none;" title="Apri su TradingView">📈</a>
           ${alertBadge}
           ${inPort ? `<span style="font-size:9px;font-weight:700;color:#00d4b8;background:#00d4b822;padding:1px 6px;border-radius:4px;">✅ IN PORT.</span>` : ""}
         </div>
@@ -3781,6 +3827,16 @@ function renderWatchlist() {
   h += "</table></div>";
   wrap.innerHTML = h;
 }
+
+window.posSort = function(key) {
+  if (window.posSortKey === key) {
+    window.posSortDir = window.posSortDir === "asc" ? "desc" : "asc";
+  } else {
+    window.posSortKey = key;
+    window.posSortDir = key === "ticker" ? "asc" : "desc";
+  }
+  renderTable();
+};
 
 window.wlSort = function(key) {
   if (window.wlSortBy === key) {
