@@ -2,10 +2,24 @@ const SUPA_URL = "https://bvzgudqbirlqnotaqame.supabase.co";
 const SUPA_KEY = "sb_publishable_6JQK_8MZHBiEBVnq0ei3cQ_qbiuc5RO";
 
 exports.handler = async (event) => {
-  const path = event.queryStringParameters?.path || "";
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, Prefer",
+        "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS"
+      },
+      body: ""
+    };
+  }
+
+  // Decode path - supports both encoded and plain
+  const rawPath = event.queryStringParameters?.path || "";
+  const path = decodeURIComponent(rawPath);
   const method = event.httpMethod;
   const body = event.body || null;
-  const prefer = event.headers?.prefer || "";
+  const prefer = event.headers?.prefer || event.headers?.Prefer || "";
 
   const url = `${SUPA_URL}/rest/v1/${path}`;
 
@@ -18,7 +32,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json",
         "Prefer": prefer || (method === "POST" ? "resolution=merge-duplicates,return=minimal" : "return=representation")
       },
-      body: method !== "GET" && method !== "DELETE" ? body : undefined
+      body: (method !== "GET" && method !== "DELETE" && body) ? body : undefined
     });
 
     const text = await res.text();
