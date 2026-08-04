@@ -3042,6 +3042,7 @@ function renderCharts() {
 // ── RENDER: NEWS LINKS ────────────────────────────────────────────────
 function renderNews() {
   const wrap = document.getElementById("newsPositions");
+  if (!wrap) return; // elemento rimosso dall'HTML
   if (positions.length === 0) {
     wrap.innerHTML = `<div class="empty-state"><p>AGGIUNGI POSIZIONI PER VEDERE LE NEWS</p></div>`;
     return;
