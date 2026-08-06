@@ -17,6 +17,14 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const prompt = body.prompt || "";
     
+    if (!GEMINI_API_KEY) {
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ text: "API key non configurata", error: "GEMINI_API_KEY missing" })
+      };
+    }
+
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -30,7 +38,22 @@ exports.handler = async (event) => {
     );
 
     const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "Nessuna risposta disponibile.";
+    
+    // Log full response for debugging
+    console.log("Gemini status:", res.status);
+    console.log("Gemini response:", JSON.stringify(data).slice(0, 500));
+    
+    if (!res.ok) {
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ text: `Errore Gemini: ${data?.error?.message || res.status}` })
+      };
+    }
+
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text 
+      || data?.candidates?.[0]?.content?.text
+      || "Risposta non disponibile.";
     
     return {
       statusCode: 200,
@@ -41,7 +64,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: err.message })
+      body: JSON.stringify({ text: `Errore: ${err.message}`, error: err.message })
     };
   }
 };
