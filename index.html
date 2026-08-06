@@ -4614,29 +4614,6 @@ Domanda: ${question}`;
   }
 };
 
-  // Add user message
-  chatEl.innerHTML += `<div style="align-self:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px 10px 0 10px;padding:8px 12px;font-size:12px;max-width:80%;">${question}</div>`;
-  document.getElementById("aiQuestion").value = "";
-
-  // Gather data
-  const score = pos?.compositeScore || wl?.compositeScore;
-  const rsi = pos?.rsi || wl?.rsi;
-  const signal = pos?.signal?.label || wl?.techRating;
-  const dpo = pos?.dpo?.text;
-  const sentiment = pos?.sentiment?.text;
-  const wlByTicker2 = watchlist?.find(w => w.ticker === (pos?.ticker || wl?.ticker));
-  const fv = fund?.fairValueLabel || wl?.fairValueLabel || wlByTicker2?.fairValueLabel;
-  const upside = fund?.analystUpside ?? wl?.analystUpside ?? wlByTicker2?.analystUpside ?? null;
-  const pe = fund?.pe ?? wl?.pe ?? wlByTicker2?.pe ?? null;
-  const price = pos?.currentPrice || wl?.current_price_ref;
-  const sma50 = pos?.sma50;
-  const sma200 = pos?.sma200;
-  const stopLoss = pos?.stopLoss;
-  const cf = fund?.cashFlowLabel || wl?.cashFlowLabel || wlByTicker2?.cashFlowLabel;
-
-};
-;
-
 </script>
 </body>
 </html>
