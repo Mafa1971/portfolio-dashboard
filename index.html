@@ -1210,8 +1210,17 @@ async function savePositions(pos) {
         pe: p.pe || null,
         cash_flow_label: p.cashFlowLabel || null
       };
-      // PATCH aggiorna la riga esistente (oggetto singolo, non array)
-      await sbFetch(`positions?id=eq.${p.id}`, "PATCH", row);
+      try {
+        // Prova PATCH — se non trova righe fa POST
+        const patchRes = await sbFetch(`positions?id=eq.${p.id}&user_id=eq.${currentUser}`, "PATCH", row);
+        // Se PATCH non ha aggiornato nulla (array vuoto), fai POST
+        if (!patchRes || (Array.isArray(patchRes) && patchRes.length === 0)) {
+          await sbFetch("positions", "POST", [row]);
+        }
+      } catch(e) {
+        // Se PATCH fallisce prova POST
+        try { await sbFetch("positions", "POST", [row]); } catch(e2) { console.error("Save error:", e2); }
+      }
     }
   } catch(e) { console.error("Errore salvataggio posizioni:", e); }
 }
@@ -4519,7 +4528,7 @@ window.setQ = function(q) {
   document.getElementById("aiQuestion").focus();
 };
 
-window.askAI = function() {
+window.askAI = async function() {
   const question = document.getElementById("aiQuestion").value.trim();
   if (!question) return;
 
@@ -4528,6 +4537,82 @@ window.askAI = function() {
   const pos = aiCurrentData?.pos;
   const wl = aiCurrentData?.wl;
   const fund = aiCurrentData?.fund || {};
+
+  chatEl.innerHTML += `<div style="align-self:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px 10px 0 10px;padding:8px 12px;font-size:12px;max-width:80%;">${question}</div>`;
+  chatEl.innerHTML += `<div id="aiLoading" style="align-self:flex-start;color:var(--dim);font-size:11px;padding:8px;">🤖 Analisi in corso...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  document.getElementById("aiQuestion").value = "";
+
+  const score = pos?.compositeScore || wl?.compositeScore;
+  const rsi = pos?.rsi || wl?.rsi;
+  const signal = pos?.signal?.label || wl?.techRating;
+  const dpo = pos?.dpo?.text;
+  const sentiment = pos?.sentiment?.text;
+  const fv = fund?.fairValueLabel || "--";
+  const upside = fund?.analystUpside;
+  const pe = fund?.pe;
+  const price = pos?.currentPrice || wl?.current_price_ref;
+  const sma50 = pos?.sma50;
+  const sma200 = pos?.sma200;
+  const stopLoss = pos?.stopLoss;
+  const maxDD = aiCurrentData?._maxDD;
+  const sortino = aiCurrentData?._sortino;
+  const volatility = aiCurrentData?._volatility;
+
+  const prompt = `Sei un esperto analista finanziario. Rispondi in italiano in modo conciso (max 200 parole). Non sei un consulente ufficiale. Usa emoji per chiarezza.
+
+Titolo: ${ticker} — ${pos?.name || wl?.name || ticker} ${pos ? `(in portafoglio a €${pos.buyPrice?.toFixed(2)})` : "(in watchlist)"}
+
+Dati tecnici:
+- Score composito: ${score?.toFixed(1) || "N/D"}/10
+- Segnale: ${signal || "N/D"}
+- RSI: ${rsi?.toFixed(0) || "N/D"}
+- DPO: ${dpo || "N/D"}
+- Sentiment: ${sentiment || "N/D"}
+- Prezzo: ${price ? "€"+price.toFixed(2) : "N/D"}
+- SMA50: ${sma50?.toFixed(2) || "N/D"}
+- SMA200: ${sma200?.toFixed(2) || "N/D"}
+${stopLoss ? `- Stop Loss: €${stopLoss.toFixed(2)}` : ""}
+
+Dati fondamentali:
+- Fair Value: ${fv}
+- Rialzo analisti: ${upside != null ? upside+"%" : "N/D"}
+- P/E: ${pe ? pe+"x" : "N/D"}
+- Cash Flow: ${fund?.cashFlowLabel || "N/D"}
+
+Rischio (1 anno):
+- Max Drawdown: ${maxDD != null ? maxDD+"%" : "N/D"}
+- Sortino: ${sortino != null ? sortino : "N/D"}
+- Volatilità: ${volatility != null ? volatility+"%" : "N/D"}
+
+Domanda: ${question}`;
+
+  try {
+    const res = await fetch("/.netlify/functions/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
+    });
+    const data = await res.json();
+    const answer = data.text || data.error || "Errore nella risposta.";
+
+    document.getElementById("aiLoading")?.remove();
+    chatEl.innerHTML += `<div style="align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px 10px 10px 0;padding:10px 12px;font-size:12px;max-width:90%;line-height:1.6;">${answer.replace(/\n/g,"<br>")}</div>`;
+    chatEl.scrollTop = chatEl.scrollHeight;
+
+    // Save to Supabase
+    sbFetch("ai_analysis", "POST", [{
+      id: "ai_"+Date.now()+"_"+currentUser+"_"+ticker,
+      user_id: currentUser, ticker, question, answer,
+      score: score||null, rsi: rsi||null, signal: signal||null, fair_value: fv||null,
+      created_at: new Date().toISOString()
+    }]).then(() => loadAIHistory(ticker)).catch(e => console.error(e));
+
+  } catch(e) {
+    document.getElementById("aiLoading")?.remove();
+    chatEl.innerHTML += `<div style="color:#ff6b6b;font-size:11px;padding:8px;">Errore: ${e.message}</div>`;
+  }
+};
 
   // Add user message
   chatEl.innerHTML += `<div style="align-self:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:10px 10px 0 10px;padding:8px 12px;font-size:12px;max-width:80%;">${question}</div>`;
@@ -4549,137 +4634,8 @@ window.askAI = function() {
   const stopLoss = pos?.stopLoss;
   const cf = fund?.cashFlowLabel || wl?.cashFlowLabel || wlByTicker2?.cashFlowLabel;
 
-  // Generate rule-based analysis
-  const answer = generateAIAnalysis(ticker, { score, rsi, signal, dpo, sentiment, fv, upside, pe, price, sma50, sma200, stopLoss, cf, pos, wl }, question);
-
-  chatEl.innerHTML += `<div style="align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px 10px 10px 0;padding:10px 12px;font-size:12px;max-width:90%;line-height:1.6;">${answer}</div>`;
-  chatEl.scrollTop = chatEl.scrollHeight;
-
-  // Save to Supabase silently
-  const aiId = "ai_"+Date.now()+"_"+currentUser+"_"+ticker;
-  sbFetch("ai_analysis", "POST", [{
-    id: aiId,
-    user_id: currentUser,
-    ticker: ticker,
-    question: question,
-    answer: answer,
-    score: score||null,
-    rsi: rsi||null,
-    signal: signal||null,
-    fair_value: fv||null,
-    created_at: new Date().toISOString()
-  }]).then(() => loadAIHistory(ticker)).catch(e => console.error("Save AI error:", e));
 };
-
-function generateAIAnalysis(ticker, d, question) {
-  const q = question.toLowerCase();
-  const sym = ticker.endsWith(".MI") ? "€" : "$";
-  const inPort = !!d.pos;
-
-  // Score interpretation
-  const scoreText = !d.score ? "Score non disponibile" :
-    d.score >= 8 ? `🟢 <strong>Score eccellente (${d.score}/10)</strong> — segnale molto forte` :
-    d.score >= 6 ? `🟡 <strong>Score buono (${d.score}/10)</strong> — segnale positivo` :
-    d.score >= 4 ? `🟠 <strong>Score neutro (${d.score}/10)</strong> — attendere conferma` :
-    `🔴 <strong>Score basso (${d.score}/10)</strong> — segnale negativo`;
-
-  // RSI interpretation
-  const rsiText = !d.rsi ? "RSI non disponibile" :
-    d.rsi > 75 ? `⚠️ RSI ${d.rsi.toFixed(0)} — <strong>fortemente ipercomprato</strong>, possibile correzione` :
-    d.rsi > 65 ? `🟡 RSI ${d.rsi.toFixed(0)} — zona ipercomprato, attenzione` :
-    d.rsi < 25 ? `💎 RSI ${d.rsi.toFixed(0)} — <strong>fortemente ipervenduto</strong>, possibile rimbalzo` :
-    d.rsi < 35 ? `🟢 RSI ${d.rsi.toFixed(0)} — zona ipervenduto, opportunità` :
-    `✅ RSI ${d.rsi.toFixed(0)} — zona neutrale`;
-
-  // Trend SMA
-  const trendText = d.price && d.sma50 && d.sma200 ?
-    (d.price > d.sma50 && d.price > d.sma200 ? "📈 <strong>Trend rialzista</strong> — prezzo sopra SMA50 e SMA200" :
-     d.price > d.sma50 ? "↗️ Trend positivo di breve — sopra SMA50 ma sotto SMA200" :
-     d.price < d.sma50 && d.price < d.sma200 ? "📉 <strong>Trend ribassista</strong> — prezzo sotto SMA50 e SMA200" :
-     "↘️ Trend debole — sotto SMA50") : "";
-
-  // Fair Value
-  const fvText = !d.fv ? "" :
-    d.fv === "Sottovalutato" ? "💰 <strong>Sottovalutato</strong> rispetto al fair value" :
-    d.fv === "Moderatamente sottovalutato" ? "🔵 Moderatamente sottovalutato" :
-    d.fv === "Sopravvalutato" ? "🔴 <strong>Sopravvalutato</strong> rispetto al fair value — attenzione" :
-    d.fv === "Affare" ? "🎯 <strong>Affare</strong> — prezzo molto conveniente" :
-    `Fair Value: ${d.fv}`;
-
-  // Analyst upside
-  const upsideText = d.upside != null ?
-    (d.upside > 20 ? `🎯 Target analisti: <strong>+${d.upside}%</strong> di rialzo potenziale` :
-     d.upside > 0 ? `📊 Target analisti: +${d.upside}% di upside` :
-     `⚠️ Target analisti sotto il prezzo attuale (${d.upside}%)`) : "";
-
-  // Stop loss check
-  const stopText = d.pos && d.stopLoss && d.price ?
-    (d.price <= d.stopLoss ? `🛑 <strong>ATTENZIONE: prezzo sotto lo stop loss (${sym}${d.stopLoss.toFixed(2)})!</strong>` :
-     ((d.price - d.stopLoss)/d.price*100 < 5) ? `⚠️ Vicino allo stop loss (${sym}${d.stopLoss.toFixed(2)}) — ${((d.price-d.stopLoss)/d.price*100).toFixed(1)}% di margine` : "") : "";
-
-  // Build response based on question type
-  let response = "";
-
-  if (q.includes("analisi tecnica") || q.includes("tecnica") || q.includes("segnale")) {
-    response = `📊 <strong>Analisi Tecnica — ${ticker}</strong><br><br>
-${scoreText}<br>
-${rsiText}<br>
-${trendText ? trendText+"<br>" : ""}
-${d.dpo ? `📉 DPO: <strong>${d.dpo}</strong><br>` : ""}
-${d.sentiment ? `🌡️ Sentiment: <strong>${d.sentiment}</strong><br>` : ""}
-${stopText ? stopText+"<br>" : ""}
-<br>${fvText ? fvText+"<br>" : ""}
-${upsideText ? upsideText+"<br>" : ""}
-${d.cf ? `💵 Cash Flow: ${d.cf}` : ""}`;
-
-  } else if (q.includes("entr") || q.includes("comprare") || q.includes("acquist") || q.includes("momento")) {
-    const signal = d.score >= 6 && d.rsi < 65 && (d.fv === "Sottovalutato" || d.fv === "Affare" || d.fv === "Moderatamente sottovalutato");
-    const warning = d.rsi > 70 || d.score < 4 || d.fv === "Sopravvalutato";
-    response = `🎯 <strong>Momento di entrata — ${ticker}</strong><br><br>
-${signal ? "✅ <strong>Condizioni favorevoli per entrare:</strong>" : warning ? "⚠️ <strong>Condizioni non ottimali — attendere:</strong>" : "🟡 <strong>Situazione mista — valutare con cautela:</strong>"}<br><br>
-${scoreText}<br>
-${rsiText}<br>
-${trendText ? trendText+"<br>" : ""}
-${fvText ? fvText+"<br>" : ""}
-${upsideText ? upsideText+"<br>" : ""}
-<br>💡 <em>Non è consulenza finanziaria — valuta sempre il contesto di mercato.</em>`;
-
-  } else if (q.includes("rischi") || q.includes("rischio")) {
-    const risks = [];
-    if (d.rsi > 70) risks.push("🔴 RSI ipercomprato — rischio di correzione");
-    if (d.score < 4) risks.push("🔴 Score basso — trend tecnico negativo");
-    if (d.fv === "Sopravvalutato") risks.push("🔴 Titolo sopravvalutato rispetto al fair value");
-    if (d.upside < 0) risks.push("🔴 Target analisti sotto il prezzo attuale");
-    if (d.pe && d.pe > 30) risks.push(`🟡 P/E elevato (${d.pe}x) — valutazione cara`);
-    if (d.price && d.sma200 && d.price < d.sma200) risks.push("🟡 Prezzo sotto SMA200 — trend ribassista");
-    if (stopText) risks.push(stopText);
-    if (risks.length === 0) risks.push("✅ Nessun rischio critico rilevato dai dati disponibili");
-    response = `⚠️ <strong>Rischi principali — ${ticker}</strong><br><br>${risks.join("<br>")}
-<br><br>📊 ${scoreText}<br>${rsiText}`;
-
-  } else if (q.includes("benchmark") || q.includes("settore") || q.includes("confronto")) {
-    response = `📈 <strong>Confronto con il settore — ${ticker}</strong><br><br>
-${scoreText}<br>
-${fvText ? fvText+"<br>" : ""}
-${upsideText ? upsideText+"<br>" : ""}
-${d.pe ? `💹 P/E: ${d.pe}x ${d.pe<15?"— conveniente rispetto alla media":d.pe>30?"— caro rispetto alla media":"— in linea con la media"}<br>` : ""}
-${d.cf ? `💵 Cash Flow: <strong>${d.cf}</strong><br>` : ""}
-<br>💡 Per un confronto dettagliato con i peer del settore consulta i dati fondamentali nella scheda titolo.`;
-
-  } else {
-    // General analysis
-    response = `🤖 <strong>Analisi — ${ticker}</strong>${inPort?" (in portafoglio)":""}<br><br>
-${scoreText}<br>
-${rsiText}<br>
-${trendText ? trendText+"<br>" : ""}
-${fvText ? fvText+"<br>" : ""}
-${upsideText ? upsideText+"<br>" : ""}
-${stopText ? "<br>"+stopText+"<br>" : ""}
-<br>💡 <em>Analisi basata su dati tecnici e fondamentali. Non è consulenza finanziaria.</em>`;
-  }
-
-  return response.replace(/\n\n/g,"<br>").trim();
-};
+;
 
 </script>
 </body>
