@@ -1,4 +1,4 @@
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
@@ -16,45 +16,40 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
     const prompt = body.prompt || "";
-    
-    if (!GEMINI_API_KEY) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ text: "API key non configurata", error: "GEMINI_API_KEY missing" })
-      };
-    }
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
-        })
-      }
-    );
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content: "Sei un esperto analista finanziario. Rispondi sempre in italiano, in modo conciso e diretto (max 250 parole). Usa emoji per chiarezza. Non sei un consulente finanziario ufficiale."
+          },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
 
     const data = await res.json();
-    
-    // Log full response for debugging
-    console.log("Gemini status:", res.status);
-    console.log("Gemini response:", JSON.stringify(data).slice(0, 500));
-    
+    console.log("Groq status:", res.status);
+
     if (!res.ok) {
       return {
         statusCode: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ text: `Errore Gemini: ${data?.error?.message || res.status}` })
+        body: JSON.stringify({ text: `Errore: ${data?.error?.message || res.status}` })
       };
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text 
-      || data?.candidates?.[0]?.content?.text
-      || "Risposta non disponibile.";
-    
+    const text = data?.choices?.[0]?.message?.content || "Nessuna risposta.";
+
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -64,7 +59,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ text: `Errore: ${err.message}`, error: err.message })
+      body: JSON.stringify({ text: `Errore: ${err.message}` })
     };
   }
 };
