@@ -1633,7 +1633,15 @@ let editingPositionId = null;
 // ── TARGET / STOP LOSS MODAL ──────────────────────────────────────────
 const modalTargetOverlay = document.getElementById("modalTargetOverlay");
 let targetPositionId = null;
-const positionAlerts = new Set(); // traccia alert già inviati
+// Alert posizioni persistente in localStorage
+const positionAlerts = new Set();
+try {
+  const savedPA = JSON.parse(localStorage.getItem("positionAlerts_" + (currentUser||"")) || "[]");
+  savedPA.forEach(k => positionAlerts.add(k));
+} catch(e) {}
+function savePositionAlerts() {
+  try { localStorage.setItem("positionAlerts_" + currentUser, JSON.stringify([...positionAlerts])); } catch(e) {}
+}
 
 function openTargetModal(id) {
   const p = positions.find(x => x.id === id);
@@ -1679,7 +1687,7 @@ async function checkPositionAlerts() {
 
     // TARGET alert
     if (p.target && price >= p.target && !positionAlerts.has(p.ticker + "_target")) {
-      positionAlerts.add(p.ticker + "_target");
+      positionAlerts.add(p.ticker + "_target"); savePositionAlerts();
       const msg = `🎯 <b>TARGET RAGGIUNTO — ${p.ticker}</b>\n\n` +
         `📈 <b>${p.name}</b>\n` +
         `💰 Prezzo: <b>${sym}${price.toFixed(2)}</b>\n` +
@@ -1691,11 +1699,11 @@ async function checkPositionAlerts() {
         fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "jonathan", message: msg }) })
       ]);
     }
-    if (p.target && price < p.target) positionAlerts.delete(p.ticker + "_target");
+    if (p.target && price < p.target) { positionAlerts.delete(p.ticker + "_target"); savePositionAlerts(); }
 
     // STOP LOSS alert
     if (p.stopLoss && price <= p.stopLoss && !positionAlerts.has(p.ticker + "_stop")) {
-      positionAlerts.add(p.ticker + "_stop");
+      positionAlerts.add(p.ticker + "_stop"); savePositionAlerts();
       const msg = `🛑 <b>STOP LOSS — ${p.ticker}</b>\n\n` +
         `📉 <b>${p.name}</b>\n` +
         `💰 Prezzo: <b>${sym}${price.toFixed(2)}</b>\n` +
@@ -1707,7 +1715,7 @@ async function checkPositionAlerts() {
         fetch("/.netlify/functions/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: "jonathan", message: msg }) })
       ]);
     }
-    if (p.stopLoss && price > p.stopLoss) positionAlerts.delete(p.ticker + "_stop");
+    if (p.stopLoss && price > p.stopLoss) { positionAlerts.delete(p.ticker + "_stop"); savePositionAlerts(); }
   }
 }
 window.checkPositionAlerts = checkPositionAlerts;
@@ -3187,7 +3195,16 @@ window.applyModelPortfolio = function(id) {
 
 
 // ── TELEGRAM ALERTS ───────────────────────────────────────────────────
+// Alert state persistente in localStorage
 const alertedTickers = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem("alertedTickers_" + (currentUser||"")) || "[]");
+  saved.forEach(k => alertedTickers.add(k));
+} catch(e) {}
+
+function saveAlertedTickers() {
+  try { localStorage.setItem("alertedTickers_" + currentUser, JSON.stringify([...alertedTickers])); } catch(e) {}
+}
 
 async function sendTelegramAlert(ticker, price, alertPrice, name) {
   try {
@@ -3222,13 +3239,14 @@ async function checkWatchlistAlerts() {
       const keyBuy = w.ticker + "_buy";
       if (w.price >= w.alertPrice && !alertedTickers.has(keyBuy)) {
         alertedTickers.add(keyBuy);
+        saveAlertedTickers();
         const msg = `🟢 <b>BUY ALERT ↑ — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Target BUY: <b>${w.alertPrice.toFixed(2)}</b>\n👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\nIl prezzo ha superato il target!`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price < w.alertPrice) alertedTickers.delete(w.ticker + "_buy");
+      if (w.price < w.alertPrice) { alertedTickers.delete(w.ticker + "_buy"); saveAlertedTickers(); }
     }
 
     // SUPPORT ALERT — prezzo scende sotto il supporto
@@ -3236,13 +3254,14 @@ async function checkWatchlistAlerts() {
       const keySupport = w.ticker + "_support";
       if (w.price <= w.alertSupport && !alertedTickers.has(keySupport)) {
         alertedTickers.add(keySupport);
+        saveAlertedTickers();
         const msg = `🔵 <b>SUPPORTO ALERT ↓ — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${w.alertSupport.toFixed(2)}</b>\n👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\nIl prezzo è sceso al livello di supporto!`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price > w.alertSupport) alertedTickers.delete(w.ticker + "_support");
+      if (w.price > w.alertSupport) { alertedTickers.delete(w.ticker + "_support"); saveAlertedTickers(); }
     }
   }
 }
