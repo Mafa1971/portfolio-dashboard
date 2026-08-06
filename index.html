@@ -2361,12 +2361,12 @@ document.getElementById("btnBackupImport").addEventListener("click", () => {
   document.getElementById("backupFileInput").click();
 });
 
-document.getElementById("backupFileInput").addEventListener("change", (e) => {
+document.getElementById("backupFileInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   if (!confirm("Sei sicuro? Il ripristino sovrascriverà tutti i dati attuali.")) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
+  reader.onload = async (ev) => {
     try {
       const backup = JSON.parse(ev.target.result);
       if (!backup.positions) throw new Error("File non valido");
@@ -2374,13 +2374,35 @@ document.getElementById("backupFileInput").addEventListener("change", (e) => {
       closedLots = backup.closedLots || [];
       targets = backup.targets || { ticker:{}, sector:{}, region:{} };
       fundamentals = backup.fundamentals || {};
-      savePositions(positions);
+
+      // Salva posizioni in batch da 50 alla volta
+      const allPos = positions.map(p => ({
+        id: p.id, user_id: currentUser, ticker: p.ticker, name: p.name, qty: p.qty,
+        buy_price: p.buyPrice, buy_date: p.buyDate, currency: p.currency,
+        sector: p.sector, region: p.region, current_price: p.currentPrice,
+        ath: p.ath, is_manual: p.isManual || false,
+        target: p.target || null, stop_loss: p.stopLoss || null,
+        fair_value_label: p.fairValueLabel || null,
+        analyst_upside: p.analystUpside || null,
+        pe: p.pe || null, cash_flow_label: p.cashFlowLabel || null
+      }));
+
+      // Prima cancella le posizioni esistenti poi inserisce tutte
+      await sbFetch(`positions?user_id=eq.${currentUser}`, "DELETE");
+      
+      // Inserisce in batch da 50
+      const batchSize = 50;
+      for (let i = 0; i < allPos.length; i += batchSize) {
+        const batch = allPos.slice(i, i + batchSize);
+        await sbFetch("positions", "POST", batch);
+      }
+
       saveClosedLots();
       saveTargets();
       saveFundamentals();
       e.target.value = "";
       renderAll();
-      alert("✓ Backup ripristinato — " + positions.length + " posizioni caricate.");
+      alert(`✓ Backup ripristinato — ${positions.length} posizioni caricate.`);
     } catch(err) {
       alert("⚠ Errore nel file di backup: " + err.message);
     }
