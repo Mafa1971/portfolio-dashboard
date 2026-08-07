@@ -919,6 +919,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
           style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:20px;">✕</button>
       </div>
     </div>
+    <div id="aiDataReady" style="display:none;font-size:9px;color:#00d4b8;letter-spacing:1px;margin-bottom:8px;">✅ Dati tecnici pronti — puoi fare la domanda</div>
 
     <!-- GRAFICO -->
     <div style="margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line);">
@@ -4225,6 +4226,9 @@ window.saveAIFundamentals = async function(ticker) {
 window.openAIAnalysis = async function(ticker) {
   aiCurrentTicker = ticker;
   aiChatMessages = [];
+  // Reset ready badge
+  const readyBadge = document.getElementById("aiDataReady");
+  if (readyBadge) readyBadge.style.display = "none";
 
   // Ricarica fondamentali freschi da Supabase
   try {
@@ -4484,6 +4488,10 @@ async function loadAIChart(ticker, range) {
       aiCurrentData._sharpe = stdDev > 0 ? parseFloat(((avgRet*252-0.035)/stdDev).toFixed(2)) : null;
       aiCurrentData._sortino = downDev ? parseFloat(((avgRet*252-0.035)/downDev).toFixed(2)) : null;
       aiCurrentData._volatility = parseFloat((stdDev*100).toFixed(1));
+      // Segnala che i dati avanzati sono pronti
+      aiCurrentData._ready = true;
+      const readyBadge = document.getElementById("aiDataReady");
+      if (readyBadge) { readyBadge.style.display = "inline"; }
       setTimeout(() => renderAITechData(aiCurrentData.pos, aiCurrentData.wl, aiCurrentData.fund), 200);
     }
 
