@@ -747,11 +747,11 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         </select>
       </div>
       <div class="fg" style="grid-column:span 2">
-        <label>Alert BUY ↑ (avviso quando prezzo ≥ questo valore)</label>
+        <label>🔴 Resistenza (avviso zona ±2% sotto questo livello)</label>
         <input type="number" id="wAlertPrice" step="any" placeholder="es. 205.00">
       </div>
       <div class="fg" style="grid-column:span 2">
-        <label>Alert SUPPORTO ↓ (avviso quando prezzo ≤ questo valore)</label>
+        <label>🟡 Supporto (avviso zona ±2% sopra questo livello)</label>
         <input type="number" id="wAlertSupport" step="any" placeholder="es. 180.00">
       </div>
       <div class="fg" style="grid-column:span 2">
@@ -3234,34 +3234,66 @@ async function checkWatchlistAlerts() {
   for (const w of watchlist) {
     if (!w.price) continue;
 
-    // BUY ALERT — prezzo sale sopra il target
-    if (w.alertPrice) {
-      const keyBuy = w.ticker + "_buy";
-      if (w.price >= w.alertPrice && !alertedTickers.has(keyBuy)) {
-        alertedTickers.add(keyBuy);
-        saveAlertedTickers();
-        const msg = `🟢 <b>BUY ALERT ↑ — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Target BUY: <b>${w.alertPrice.toFixed(2)}</b>\n👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\nIl prezzo ha superato il target!`;
+
+    // ZONA RESISTENZA — range centrato ±3% sulla resistenza
+    if (w.alertPrice && w.price != null) {
+      const res = w.alertPrice;
+      const thr = 0.03;
+      const keyRes = w.ticker + "_resistance";
+      const keyBreak = w.ticker + "_breakout";
+
+      // Zona: [res-3%, res+3%]
+      if (w.price >= res * (1 - thr) && w.price <= res * (1 + thr) && !alertedTickers.has(keyRes)) {
+        alertedTickers.add(keyRes); saveAlertedTickers();
+        const msg = `🔴 <b>ZONA RESISTENZA — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza: <b>${res.toFixed(2)}</b>\n📊 Range zona: ${(res*(1-thr)).toFixed(2)} — ${(res*(1+thr)).toFixed(2)}\n\n⚠️ Prezzo nella zona resistenza — possibile target/sell\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price < w.alertPrice) { alertedTickers.delete(w.ticker + "_buy"); saveAlertedTickers(); }
+      // Reset quando esce dalla zona
+      if (w.price < res * (1 - thr)) { alertedTickers.delete(keyRes); alertedTickers.delete(keyBreak); saveAlertedTickers(); }
+
+      // BREAKOUT — prezzo supera res+3%
+      if (w.price > res * (1 + thr) && !alertedTickers.has(keyBreak)) {
+        alertedTickers.add(keyBreak); saveAlertedTickers();
+        const msg = `🚀 <b>BREAKOUT — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza superata: <b>${res.toFixed(2)} +3%</b>\n\n✅ Possibile ingresso in breakout\n👤 ${currentUser.toUpperCase()}`;
+        await Promise.all([
+          fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
+          fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
+        ]);
+      }
+      if (w.price < res * (1 + thr)) { alertedTickers.delete(keyBreak); saveAlertedTickers(); }
     }
 
-    // SUPPORT ALERT — prezzo scende sotto il supporto
-    if (w.alertSupport) {
-      const keySupport = w.ticker + "_support";
-      if (w.price <= w.alertSupport && !alertedTickers.has(keySupport)) {
-        alertedTickers.add(keySupport);
-        saveAlertedTickers();
-        const msg = `🔵 <b>SUPPORTO ALERT ↓ — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${w.alertSupport.toFixed(2)}</b>\n👤 Portafoglio: <b>${currentUser.toUpperCase()}</b>\n\nIl prezzo è sceso al livello di supporto!`;
+    // ZONA SUPPORTO — range centrato ±3% sul supporto
+    if (w.alertSupport && w.price != null) {
+      const sup = w.alertSupport;
+      const thr = 0.03;
+      const keySup = w.ticker + "_support";
+      const keyBelowSup = w.ticker + "_belowsupport";
+
+      // Zona: [sup-3%, sup+3%]
+      if (w.price >= sup * (1 - thr) && w.price <= sup * (1 + thr) && !alertedTickers.has(keySup)) {
+        alertedTickers.add(keySup); saveAlertedTickers();
+        const msg = `🟡 <b>ZONA SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${sup.toFixed(2)}</b>\n📊 Range zona: ${(sup*(1-thr)).toFixed(2)} — ${(sup*(1+thr)).toFixed(2)}\n\n🔍 Prezzo nella zona supporto — attendi pattern di conferma\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price > w.alertSupport) { alertedTickers.delete(w.ticker + "_support"); saveAlertedTickers(); }
+      if (w.price > sup * (1 + thr)) { alertedTickers.delete(keySup); alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
+
+      // SOTTO SUPPORTO — prezzo scende sotto sup-3%
+      if (w.price < sup * (1 - thr) && !alertedTickers.has(keyBelowSup)) {
+        alertedTickers.add(keyBelowSup); saveAlertedTickers();
+        const msg = `⚠️ <b>SOTTO SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto violato: <b>${sup.toFixed(2)} -3%</b>\n\n🛑 Prezzo sotto la zona supporto — valuta stop\n👤 ${currentUser.toUpperCase()}`;
+        await Promise.all([
+          fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
+          fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
+        ]);
+      }
+      if (w.price > sup * (1 - thr)) { alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
     }
   }
 }
@@ -3827,13 +3859,31 @@ function renderWatchlist() {
     const chg = w.changePct;
     const chgColor = chg == null ? "var(--dim)" : chg >= 0 ? "#00d4b8" : "#ff6b6b";
 
-    // BUY ALERT badge
+    // ZONE ALERT BADGE (2% range sopra/sotto)
     let alertBadge = "";
-    if (w.alertPrice && w.price != null && w.price >= w.alertPrice) {
-      alertBadge = `<span style="display:inline-block;background:#00d4b822;color:#00d4b8;border:1px solid #00d4b8;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🟢 BUY</span>`;
-    }
-    if (w.alertSupport && w.price != null && w.price <= w.alertSupport) {
-      alertBadge += `<span style="display:inline-block;background:#4fa3ff22;color:#4fa3ff;border:1px solid #4fa3ff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">🔵 SUPPORTO</span>`;
+    if (w.price != null) {
+      const p = w.price;
+      const res = w.alertPrice;   // Resistenza (manuale)
+      const sup = w.alertSupport; // Supporto (manuale)
+      const threshold = 0.02;     // 2%
+
+      const thr = 0.03; // 3% range centrato
+      // Zona Resistenza: [res-3%, res+3%]
+      if (res && p >= res * (1 - thr) && p <= res * (1 + thr)) {
+        alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🔴 ZONA RESISTENZA — Target/Sell</span>`;
+      }
+      // Breakout: prezzo supera res+3%
+      if (res && p > res * (1 + thr)) {
+        alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🚀 BREAKOUT — Possibile ingresso</span>`;
+      }
+      // Zona Supporto: [sup-3%, sup+3%]
+      if (sup && p >= sup * (1 - thr) && p <= sup * (1 + thr)) {
+        alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">🟡 ZONA SUPPORTO — Attendi Pattern</span>`;
+      }
+      // Sotto supporto: prezzo scende sotto sup-3%
+      if (sup && p < sup * (1 - thr)) {
+        alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b44;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">⚠️ SOTTO SUPPORTO</span>`;
+      }
     }
 
     // Fair Value badge
@@ -4395,8 +4445,11 @@ async function loadAIChart(ticker, range) {
     if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
     if (aiVolumeChart) { aiVolumeChart.destroy(); aiVolumeChart = null; }
 
-    // Save volume and risk metrics for cards
+    // Save volume, risk metrics and SR levels for cards
     if (aiCurrentData && closes.length > 10) {
+      // Support/Resistance
+      const sr = calcSupportResistance(closes, highs || [], lows || [], Math.min(60, closes.length));
+      if (sr) aiCurrentData._sr = sr;
       aiCurrentData._lastVolume = volumes[volumes.length-1] || null;
       aiCurrentData._lastVolMA = volSma20[volSma20.length-1] || null;
       // Risk metrics from closes
@@ -4599,10 +4652,12 @@ window.askAI = async function() {
   const maxDD = aiCurrentData?._maxDD;
   const sortino = aiCurrentData?._sortino;
   const volatility = aiCurrentData?._volatility;
+  const sr = aiCurrentData?._sr;
+  const sym2 = (pos?.currency || wl?.currency) === "USD" ? "$" : "€";
 
-  const prompt = `Sei un esperto analista finanziario. Rispondi in italiano in modo conciso (max 200 parole). Non sei un consulente ufficiale. Usa emoji per chiarezza.
+  const prompt = `Sei un esperto analista finanziario. Rispondi in italiano in modo conciso (max 280 parole). Non sei un consulente ufficiale. Usa emoji per chiarezza.
 
-Titolo: ${ticker} — ${pos?.name || wl?.name || ticker} ${pos ? `(in portafoglio a €${pos.buyPrice?.toFixed(2)})` : "(in watchlist)"}
+Titolo: ${ticker} — ${pos?.name || wl?.name || ticker} ${pos ? `(in portafoglio a ${sym2}${pos.buyPrice?.toFixed(2)})` : "(in watchlist)"}
 
 Dati tecnici:
 - Score composito: ${score?.toFixed(1) || "N/D"}/10
@@ -4610,10 +4665,19 @@ Dati tecnici:
 - RSI: ${rsi?.toFixed(0) || "N/D"}
 - DPO: ${dpo || "N/D"}
 - Sentiment: ${sentiment || "N/D"}
-- Prezzo: ${price ? "€"+price.toFixed(2) : "N/D"}
+- Prezzo: ${price ? sym2+price.toFixed(2) : "N/D"}
 - SMA50: ${sma50?.toFixed(2) || "N/D"}
 - SMA200: ${sma200?.toFixed(2) || "N/D"}
-${stopLoss ? `- Stop Loss: €${stopLoss.toFixed(2)}` : ""}
+${stopLoss ? `- Stop Loss impostato: ${sym2}${stopLoss.toFixed(2)}` : ""}
+
+Livelli tecnici chiave (ultimi 60 giorni):
+- Pivot Point: ${sr ? sym2+sr.pivot.toFixed(2) : "N/D"}
+- Resistenza R1: ${sr ? sym2+sr.r1.toFixed(2) : "N/D"}
+- Resistenza R2: ${sr ? sym2+sr.r2.toFixed(2) : "N/D"}
+- Supporto S1: ${sr ? sym2+sr.s1.toFixed(2) : "N/D"}
+- Supporto S2: ${sr ? sym2+sr.s2.toFixed(2) : "N/D"}
+- Massimo periodo: ${sr ? sym2+sr.high.toFixed(2) : "N/D"}
+- Minimo periodo: ${sr ? sym2+sr.low.toFixed(2) : "N/D"}
 
 Dati fondamentali:
 - Fair Value: ${fv}
@@ -4654,6 +4718,41 @@ Domanda: ${question}`;
     chatEl.innerHTML += `<div style="color:#ff6b6b;font-size:11px;padding:8px;">Errore: ${e.message}</div>`;
   }
 };
+
+// ── SUPPORTI/RESISTENZE E PIVOT POINTS ───────────────────────────────
+function calcSupportResistance(closes, highs, lows, lookback = 20) {
+  if (!closes || closes.length < lookback) return null;
+  const recentH = highs.slice(-lookback).filter(v=>v!=null);
+  const recentL = lows.slice(-lookback).filter(v=>v!=null);
+  const recentC = closes.slice(-lookback).filter(v=>v!=null);
+  if (!recentH.length || !recentL.length) return null;
+
+  const high = Math.max(...recentH);
+  const low = Math.min(...recentL);
+  const close = closes[closes.length-1];
+
+  // Classic Pivot Points
+  const pivot = (high + low + close) / 3;
+  const r1 = 2 * pivot - low;
+  const r2 = pivot + (high - low);
+  const s1 = 2 * pivot - high;
+  const s2 = pivot - (high - low);
+
+  // Key levels from price clusters
+  const allPrices = [...recentH, ...recentL, ...recentC].filter(v=>v!=null);
+  allPrices.sort((a,b) => a-b);
+  const range = high - low;
+  const bucketSize = range / 10;
+  const buckets = {};
+  allPrices.forEach(p => {
+    const bucket = Math.floor(p / bucketSize) * bucketSize;
+    buckets[bucket] = (buckets[bucket]||0) + 1;
+  });
+  const sorted = Object.entries(buckets).sort((a,b)=>b[1]-a[1]);
+  const keyLevels = sorted.slice(0,3).map(([k]) => parseFloat(parseFloat(k)+bucketSize/2).toFixed(2));
+
+  return { pivot, r1, r2, s1, s2, high, low, close, keyLevels };
+}
 
 </script>
 </body>
