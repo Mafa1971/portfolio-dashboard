@@ -4411,6 +4411,8 @@ async function loadAIChart(ticker, range) {
     }
 
     const volumes = result?.indicators?.quote?.[0]?.volume || [];
+    const highs = result?.indicators?.quote?.[0]?.high || [];
+    const lows = result?.indicators?.quote?.[0]?.low || [];
     
     const sma21 = closes.map((_, i) => {
       const slice = closes.slice(Math.max(0,i-20), i+1).filter(v=>v!=null);
