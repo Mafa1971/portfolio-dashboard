@@ -1018,6 +1018,9 @@ function showApp(user) {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("appContent").style.display = "block";
   document.getElementById("userBadge").textContent = USERS[user]?.name || user.toUpperCase();
+  // Carica alert persistenti ora che currentUser è impostato
+  loadAlertedTickers();
+  loadPositionAlerts();
   init();
   // Start auto-refresh after data loads
   setTimeout(startAutoRefresh, 5000);
@@ -1633,12 +1636,15 @@ let editingPositionId = null;
 // ── TARGET / STOP LOSS MODAL ──────────────────────────────────────────
 const modalTargetOverlay = document.getElementById("modalTargetOverlay");
 let targetPositionId = null;
-// Alert posizioni persistente in localStorage
+// Alert posizioni persistente in localStorage — caricato dopo login
 const positionAlerts = new Set();
-try {
-  const savedPA = JSON.parse(localStorage.getItem("positionAlerts_" + (currentUser||"")) || "[]");
-  savedPA.forEach(k => positionAlerts.add(k));
-} catch(e) {}
+function loadPositionAlerts() {
+  try {
+    positionAlerts.clear();
+    const saved = JSON.parse(localStorage.getItem("positionAlerts_" + currentUser) || "[]");
+    saved.forEach(k => positionAlerts.add(k));
+  } catch(e) {}
+}
 function savePositionAlerts() {
   try { localStorage.setItem("positionAlerts_" + currentUser, JSON.stringify([...positionAlerts])); } catch(e) {}
 }
@@ -3195,13 +3201,15 @@ window.applyModelPortfolio = function(id) {
 
 
 // ── TELEGRAM ALERTS ───────────────────────────────────────────────────
-// Alert state persistente in localStorage
+// Alert state persistente in localStorage — caricato dopo login
 const alertedTickers = new Set();
-try {
-  const saved = JSON.parse(localStorage.getItem("alertedTickers_" + (currentUser||"")) || "[]");
-  saved.forEach(k => alertedTickers.add(k));
-} catch(e) {}
-
+function loadAlertedTickers() {
+  try {
+    alertedTickers.clear();
+    const saved = JSON.parse(localStorage.getItem("alertedTickers_" + currentUser) || "[]");
+    saved.forEach(k => alertedTickers.add(k));
+  } catch(e) {}
+}
 function saveAlertedTickers() {
   try { localStorage.setItem("alertedTickers_" + currentUser, JSON.stringify([...alertedTickers])); } catch(e) {}
 }
