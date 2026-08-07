@@ -4455,11 +4455,17 @@ async function loadAIChart(ticker, range) {
     if (aiLineChart) { aiLineChart.destroy(); aiLineChart = null; }
     if (aiVolumeChart) { aiVolumeChart.destroy(); aiVolumeChart = null; }
 
-    // Save volume, risk metrics and SR levels for cards
+    // Save volume, risk metrics, SR, POC, Swing, FVG
     if (aiCurrentData && closes.length > 10) {
-      // Support/Resistance
       const sr = calcSupportResistance(closes, highs || [], lows || [], Math.min(60, closes.length));
       if (sr) aiCurrentData._sr = sr;
+      // POC
+      aiCurrentData._poc = calcPOC(closes, volumes);
+      // Swing High/Low
+      aiCurrentData._swings = calcSwings(highs, lows);
+      // FVG
+      const opens = result?.indicators?.quote?.[0]?.open || [];
+      aiCurrentData._fvgs = calcFVG(opens, highs, lows, closes);
       aiCurrentData._lastVolume = volumes[volumes.length-1] || null;
       aiCurrentData._lastVolMA = volSma20[volSma20.length-1] || null;
       // Risk metrics from closes
@@ -4663,6 +4669,9 @@ window.askAI = async function() {
   const sortino = aiCurrentData?._sortino;
   const volatility = aiCurrentData?._volatility;
   const sr = aiCurrentData?._sr;
+  const poc = aiCurrentData?._poc;
+  const swings = aiCurrentData?._swings;
+  const fvgs = aiCurrentData?._fvgs;
   const sym2 = (pos?.currency || wl?.currency) === "USD" ? "$" : "€";
 
   const prompt = `Sei un esperto analista finanziario. Rispondi in italiano in modo conciso (max 280 parole). Non sei un consulente ufficiale. Usa emoji per chiarezza.
@@ -4688,6 +4697,10 @@ Livelli tecnici chiave (ultimi 60 giorni):
 - Supporto S2: ${sr ? sym2+sr.s2.toFixed(2) : "N/D"}
 - Massimo periodo: ${sr ? sym2+sr.high.toFixed(2) : "N/D"}
 - Minimo periodo: ${sr ? sym2+sr.low.toFixed(2) : "N/D"}
+- POC (Point of Control volume): ${poc ? sym2+poc : "N/D"}
+- Swing High recente: ${swings?.lastSwingHigh ? sym2+swings.lastSwingHigh.toFixed(2) : "N/D"}
+- Swing Low recente: ${swings?.lastSwingLow ? sym2+swings.lastSwingLow.toFixed(2) : "N/D"}
+${fvgs?.length ? `- FVG aperti: ${fvgs.map(f=>`${f.type==="bullish"?"🟢":"🔴"} ${sym2}${f.bottom.toFixed(2)}-${sym2}${f.top.toFixed(2)} (mid: ${sym2}${f.midpoint.toFixed(2)})`).join(", ")}` : "- FVG: nessuno rilevato"}
 
 Dati fondamentali:
 - Fair Value: ${fv}
@@ -4728,6 +4741,64 @@ Domanda: ${question}`;
     chatEl.innerHTML += `<div style="color:#ff6b6b;font-size:11px;padding:8px;">Errore: ${e.message}</div>`;
   }
 };
+
+
+// ── POC (Point of Control) ────────────────────────────────────────────
+function calcPOC(closes, volumes, buckets = 20) {
+  if (!closes || !volumes || closes.length < 10) return null;
+  const validPairs = closes.map((c,i) => [c, volumes[i]]).filter(([c,v]) => c!=null && v!=null && v>0);
+  if (validPairs.length < 5) return null;
+  const prices = validPairs.map(([c]) => c);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const bucketSize = (max - min) / buckets;
+  const bucketVol = {};
+  validPairs.forEach(([c,v]) => {
+    const b = Math.floor((c - min) / bucketSize);
+    const key = min + b * bucketSize + bucketSize/2;
+    bucketVol[key] = (bucketVol[key]||0) + v;
+  });
+  const poc = Object.entries(bucketVol).sort((a,b) => b[1]-a[1])[0];
+  return poc ? parseFloat(parseFloat(poc[0]).toFixed(2)) : null;
+}
+
+// ── SWING HIGH/LOW ────────────────────────────────────────────────────
+function calcSwings(highs, lows, lookback = 5) {
+  if (!highs || !lows || highs.length < lookback*2) return null;
+  const swingHighs = [], swingLows = [];
+  for (let i = lookback; i < highs.length - lookback; i++) {
+    const windowH = highs.slice(i-lookback, i+lookback+1).filter(v=>v!=null);
+    const windowL = lows.slice(i-lookback, i+lookback+1).filter(v=>v!=null);
+    if (highs[i] != null && highs[i] === Math.max(...windowH)) swingHighs.push(highs[i]);
+    if (lows[i] != null && lows[i] === Math.min(...windowL)) swingLows.push(lows[i]);
+  }
+  const lastSwingH = swingHighs.slice(-3);
+  const lastSwingL = swingLows.slice(-3);
+  return {
+    lastSwingHigh: lastSwingH.length ? Math.max(...lastSwingH) : null,
+    lastSwingLow: lastSwingL.length ? Math.min(...lastSwingL) : null,
+    swingHighs: lastSwingH,
+    swingLows: lastSwingL
+  };
+}
+
+// ── FVG (Fair Value Gap) ──────────────────────────────────────────────
+function calcFVG(opens, highs, lows, closes) {
+  if (!opens || opens.length < 3) return null;
+  const fvgs = [];
+  for (let i = 2; i < closes.length; i++) {
+    if (!highs[i-2] || !lows[i]) continue;
+    // Bullish FVG: low[i] > high[i-2]
+    if (lows[i] > highs[i-2]) {
+      fvgs.push({ type: "bullish", top: lows[i], bottom: highs[i-2], midpoint: (lows[i]+highs[i-2])/2 });
+    }
+    // Bearish FVG: high[i] < low[i-2]
+    if (highs[i] < lows[i-2]) {
+      fvgs.push({ type: "bearish", top: lows[i-2], bottom: highs[i], midpoint: (lows[i-2]+highs[i])/2 });
+    }
+  }
+  // Return last 3 unfilled FVGs
+  return fvgs.slice(-3);
+}
 
 // ── SUPPORTI/RESISTENZE E PIVOT POINTS ───────────────────────────────
 function calcSupportResistance(closes, highs, lows, lookback = 20) {
