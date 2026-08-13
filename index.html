@@ -5198,10 +5198,15 @@ window.loadPortfolioStats = async function() {
       });
 
       const bestW = simWeights[bestIdx];
-      const bestWStr = simTickers.map((t,i)=>`<span style="color:#00d4b8;font-weight:700;">${t}</span>: ${(bestW[i]*100).toFixed(1)}%`).join(" &nbsp;|&nbsp; ");
+      const bestWStr = simTickers.map((t,i)=>
+        `<div style="background:var(--panel);border:1px solid #00d4b844;border-radius:6px;padding:6px 10px;display:inline-block;margin:3px;">
+          <span style="color:#00d4b8;font-weight:700;font-size:11px;">${t}</span>
+          <span style="color:var(--dim);font-size:11px;"> ${(bestW[i]*100).toFixed(1)}%</span>
+        </div>`).join("");
       document.getElementById("efficientFrontierPanel").querySelector("canvas").insertAdjacentHTML("afterend",
-        `<div style="font-size:11px;color:var(--dim);margin-top:12px;padding:10px;background:var(--panel2);border-radius:8px;border:1px solid var(--line);">
-          🏆 <strong style="color:#00d4b8;">Pesi ottimali (Max Sharpe):</strong><br><span style="line-height:2;">${bestWStr}</span>
+        `<div style="margin-top:12px;padding:12px;background:var(--panel2);border-radius:8px;border:1px solid var(--line);">
+          <div style="font-size:10px;color:#00d4b8;font-weight:700;letter-spacing:1px;margin-bottom:8px;">🏆 PESI OTTIMALI (MAX SHARPE)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">${bestWStr}</div>
          </div>`);
     }
   }
