@@ -322,8 +322,10 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
   </div>
   <div class="panel" id="efficientFrontierPanel" style="display:none;">
-    <div class="panel-title">FRONTIERA EFFICIENTE (Monte Carlo 5000 portafogli)</div>
-    <canvas id="efficientFrontierChart" style="width:100%;height:400px;"></canvas>
+    <div class="panel-title">FRONTIERA EFFICIENTE <span style="font-size:10px;color:var(--dim);">(Monte Carlo 2000 portafogli)</span></div>
+    <div style="position:relative;height:420px;">
+      <canvas id="efficientFrontierChart"></canvas>
+    </div>
   </div>
 </div>
 
@@ -5116,6 +5118,7 @@ window.loadPortfolioStats = async function() {
   msg.textContent = "⚙️ Monte Carlo in corso...";
   progress.style.display = "block";
 
+  try {
   const simTickers = tickers.filter(t => returns[t]?.length > 5);
   if (simTickers.length >= 2) {
     // Pre-calcola matrice covarianza (ottimizzazione)
@@ -5184,6 +5187,12 @@ window.loadPortfolioStats = async function() {
           🏆 <strong style="color:#00d4b8;">Pesi ottimali (Max Sharpe):</strong><br><span style="line-height:2;">${bestWStr}</span>
          </div>`);
     }
+  }
+
+  } catch(efErr) {
+    console.error("Frontiera efficiente errore:", efErr);
+    document.getElementById("efficientFrontierPanel").innerHTML =
+      `<div class="panel-title">FRONTIERA EFFICIENTE</div><div class="empty-state"><p>Errore: ${efErr.message}</p></div>`;
   }
 
   progress.style.display = "none";
