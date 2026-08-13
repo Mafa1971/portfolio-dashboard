@@ -289,6 +289,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div>
 
 <!-- TAB STATISTICHE -->
+<!-- TAB STATISTICHE OPERAZIONI (ex Statistiche) -->
 <div id="tabStatistiche" class="tab-content">
   <div class="panel">
     <div class="panel-title">STATISTICHE TRADING</div>
@@ -297,6 +298,35 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <div class="panel">
     <div class="panel-title">STORICO OPERAZIONI CHIUSE</div>
     <div id="closedLotsWrap"><div class="empty-state"><p>NESSUNA OPERAZIONE CHIUSA</p></div></div>
+  </div>
+</div>
+
+<!-- TAB STATISTICHE PORTAFOGLIO (nuova) -->
+<div id="tabStatPortafoglio" class="tab-content">
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="panel-title" style="margin:0;">STATISTICHE PORTAFOGLIO</div>
+      <button onclick="loadPortfolioStats()" class="btn primary" style="font-size:11px;padding:6px 14px;">📊 Calcola (5 anni)</button>
+    </div>
+    <div id="portfolioStatsProgress" style="display:none;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:6px;" id="portfolioStatsMsg">⏳ Caricamento dati storici...</div>
+      <div style="background:var(--panel2);border-radius:6px;height:6px;overflow:hidden;">
+        <div id="portfolioStatsBar" style="height:100%;background:var(--gold);width:0%;transition:width 0.3s;border-radius:6px;"></div>
+      </div>
+    </div>
+    <div id="portfolioStatsWrap"><div class="empty-state"><p>Premi "Calcola" per analizzare il portafoglio</p></div></div>
+  </div>
+  <div class="panel" id="portfolioTitlesPanel" style="display:none;">
+    <div class="panel-title">ANALISI PER TITOLO</div>
+    <div id="portfolioTitlesWrap"></div>
+  </div>
+  <div class="panel" id="correlationPanel" style="display:none;">
+    <div class="panel-title">CORRELAZIONE TRA TITOLI</div>
+    <div id="correlationWrap" style="overflow-x:auto;"></div>
+  </div>
+  <div class="panel" id="efficientFrontierPanel" style="display:none;">
+    <div class="panel-title">FRONTIERA EFFICIENTE (Monte Carlo 5000 portafogli)</div>
+    <canvas id="efficientFrontierChart" style="width:100%;height:400px;"></canvas>
   </div>
 </div>
 
@@ -419,8 +449,12 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <span class="tab-label">Portfolio</span>
   </button>
   <button class="tab-btn" onclick="switchTab('Statistiche')" id="tabBtnStatistiche">
+    <span class="tab-icon">📋</span>
+    <span class="tab-label">Op. Chiuse</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('StatPortafoglio')" id="tabBtnStatPortafoglio">
     <span class="tab-icon">📈</span>
-    <span class="tab-label">Statistiche</span>
+    <span class="tab-label">Stat. Port.</span>
   </button>
   <button class="tab-btn" onclick="switchTab('Watchlist')" id="tabBtnWatchlist">
     <span class="tab-icon">👁</span>
@@ -986,6 +1020,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div><!-- end appContent -->
 
 <script>
+
 
 
 
@@ -4845,6 +4880,283 @@ function calcSupportResistance(closes, highs, lows, lookback = 20) {
 
   return { pivot, r1, r2, s1, s2, high, low, close, keyLevels };
 }
+
+
+// ── STATISTICHE PORTAFOGLIO ───────────────────────────────────────────
+let efChart = null;
+
+window.loadPortfolioStats = async function() {
+  if (positions.length === 0) { alert("Nessuna posizione aperta."); return; }
+  const progress = document.getElementById("portfolioStatsProgress");
+  const msg = document.getElementById("portfolioStatsMsg");
+  const bar = document.getElementById("portfolioStatsBar");
+  const wrap = document.getElementById("portfolioStatsWrap");
+  progress.style.display = "block";
+  wrap.innerHTML = "";
+
+  const tickers = positions.map(p => p.ticker);
+  const allData = {};
+  let done = 0;
+
+  // Fetch 5 years of daily data for each position + SP500 benchmark
+  const allTickers = [...tickers, "^GSPC"];
+  for (const t of allTickers) {
+    msg.textContent = `⏳ Caricamento ${t} (${done+1}/${allTickers.length})...`;
+    bar.style.width = `${Math.round((done/allTickers.length)*100)}%`;
+    try {
+      const res = await fetchYahoo(t, "5y", "1mo");
+      const result = res?.chart?.result?.[0];
+      const closes = result?.indicators?.quote?.[0]?.close || [];
+      const timestamps = result?.timestamp || [];
+      if (closes.length > 10) allData[t] = { closes, timestamps };
+    } catch(e) { console.error(t, e); }
+    done++;
+  }
+
+  // YTD data (from 1/1/2026)
+  const ytdData = {};
+  for (const t of tickers) {
+    try {
+      const res = await fetchYahoo(t, "1y", "1d");
+      const result = res?.chart?.result?.[0];
+      const closes = result?.indicators?.quote?.[0]?.close || [];
+      const timestamps = result?.timestamp || [];
+      // Find first price in 2026
+      const startOf2026 = new Date("2026-01-01").getTime()/1000;
+      let startPrice = null;
+      for (let i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] >= startOf2026 && closes[i]) { startPrice = closes[i]; break; }
+      }
+      const lastPrice = closes.filter(v=>v!=null).pop();
+      if (startPrice && lastPrice) ytdData[t] = { ytd: ((lastPrice-startPrice)/startPrice*100).toFixed(1), startPrice, lastPrice };
+    } catch(e) {}
+  }
+
+  bar.style.width = "100%";
+  msg.textContent = "⚙️ Calcolo statistiche...";
+
+  // Calculate monthly returns for each ticker
+  const returns = {};
+  for (const [t, d] of Object.entries(allData)) {
+    const r = [];
+    for (let i = 1; i < d.closes.length; i++) {
+      if (d.closes[i] && d.closes[i-1]) r.push((d.closes[i]-d.closes[i-1])/d.closes[i-1]);
+    }
+    returns[t] = r;
+  }
+
+  // Portfolio weights (by current value)
+  const totalVal = positions.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+  const weights = {};
+  positions.forEach(p => { weights[p.ticker] = ((p.currentPrice||p.buyPrice)*p.qty)/totalVal; });
+
+  // Portfolio monthly returns (weighted)
+  const spxR = returns["^GSPC"] || [];
+  const minLen = Math.min(...tickers.map(t => (returns[t]||[]).length), spxR.length);
+  const portR = [];
+  for (let i = 0; i < minLen; i++) {
+    let r = 0;
+    tickers.forEach(t => { if (returns[t]?.[i] != null) r += (returns[t][i] * (weights[t]||0)); });
+    portR.push(r);
+  }
+
+  // Portfolio statistics
+  const avg = portR.reduce((a,b)=>a+b,0)/portR.length;
+  const std = Math.sqrt(portR.reduce((a,r)=>a+Math.pow(r-avg,2),0)/portR.length);
+  const volAnn = std * Math.sqrt(12) * 100;
+  const retAnn = (avg * 12) * 100;
+
+  // Max Drawdown portfolio
+  let peak = 1, val = 1, maxDD = 0;
+  portR.forEach(r => { val *= (1+r); if (val > peak) peak = val; const dd = (val-peak)/peak*100; if (dd < maxDD) maxDD = dd; });
+
+  // Sharpe (rf = 3.5% annual = 0.29% monthly)
+  const rfM = 0.035/12;
+  const excessR = portR.map(r => r - rfM);
+  const excessAvg = excessR.reduce((a,b)=>a+b,0)/excessR.length;
+  const sharpe = std > 0 ? ((excessAvg/std) * Math.sqrt(12)).toFixed(2) : "N/D";
+
+  // Sortino
+  const downR = portR.filter(r => r < rfM);
+  const downStd = downR.length > 2 ? Math.sqrt(downR.reduce((a,r)=>a+Math.pow(r-rfM,2),0)/downR.length)*Math.sqrt(12) : null;
+  const sortino = downStd ? ((retAnn/100 - 0.035)/downStd).toFixed(2) : "N/D";
+
+  // Beta vs SP500
+  const spxAvg = spxR.slice(-minLen).reduce((a,b)=>a+b,0)/minLen;
+  const cov = portR.reduce((s,r,i)=>s+(r-avg)*(spxR[i+spxR.length-minLen]||0-spxAvg),0)/minLen;
+  const spxVar = spxR.reduce((s,r)=>s+Math.pow(r-spxAvg,2),0)/spxR.length;
+  const beta = spxVar > 0 ? (cov/spxVar).toFixed(2) : "N/D";
+
+  // CAGR
+  const cagr = (Math.pow(1 + avg, 12) - 1) * 100;
+
+  // Total P&L
+  const totalPL = positions.reduce((s,p) => s+((p.currentPrice||p.buyPrice)-p.buyPrice)*p.qty, 0);
+  const totalInv = positions.reduce((s,p) => s+p.buyPrice*p.qty, 0);
+  const totalPlPct = (totalPL/totalInv*100).toFixed(1);
+
+  // ── RENDER STATS ──────────────────────────────────────────────────
+  const cards = [
+    {l:"Rendimento Totale", v:`${totalPlPct>0?"+":""}${totalPlPct}%`, sub:`€${totalPL.toFixed(0)}`, col:totalPlPct>0?"#00d4b8":"#ff6b6b"},
+    {l:"Rendimento Ann.", v:`${retAnn>0?"+":""}${retAnn.toFixed(1)}%`, sub:"storico 5y", col:retAnn>0?"#00d4b8":"#ff6b6b"},
+    {l:"CAGR", v:`${cagr>0?"+":""}${cagr.toFixed(1)}%`, sub:"annuo composto", col:cagr>0?"#00d4b8":"#ff6b6b"},
+    {l:"Volatilità", v:`${volAnn.toFixed(1)}%`, sub:"ann. mensile", col:volAnn<15?"#00d4b8":volAnn<25?"#ffd23f":"#ff6b6b"},
+    {l:"Max Drawdown", v:`${maxDD.toFixed(1)}%`, sub:"peggiore calo", col:maxDD>-10?"#00d4b8":maxDD>-20?"#ffd23f":"#ff6b6b"},
+    {l:"Sharpe Ratio", v:sharpe, sub:"rendimento/rischio", col:sharpe>1?"#00d4b8":sharpe>0.5?"#ffd23f":"#ff6b6b"},
+    {l:"Sortino Ratio", v:sortino, sub:"rischio al ribasso", col:sortino>1?"#00d4b8":sortino>0.5?"#ffd23f":"#ff6b6b"},
+    {l:"Beta (vs SP500)", v:beta, sub:beta<1?"meno volatile":"più volatile", col:beta<0.8?"#00d4b8":beta<1.2?"#ffd23f":"#ff6b6b"},
+  ];
+
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+    ${cards.map(c=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;">
+      <div style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${c.l}</div>
+      <div style="font-size:20px;font-weight:800;color:${c.col};">${c.v}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:3px;">${c.sub}</div>
+    </div>`).join("")}
+  </div>`;
+
+  // ── PER TITOLO ────────────────────────────────────────────────────
+  document.getElementById("portfolioTitlesPanel").style.display = "block";
+  const titlesWrap = document.getElementById("portfolioTitlesWrap");
+  let titlesH = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="text-align:left;padding:8px;font-size:9px;color:var(--dim);">TICKER</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">YTD 2026</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">P&L %</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">VOL ANN.</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">MAX DD</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">SHARPE</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">BETA</th>
+      <th style="text-align:right;padding:8px;font-size:9px;color:var(--dim);">PESO</th>
+    </tr>`;
+
+  positions.forEach(p => {
+    const r = returns[p.ticker] || [];
+    const spxSlice = spxR.slice(-r.length);
+    const avg2 = r.length ? r.reduce((a,b)=>a+b,0)/r.length : 0;
+    const std2 = r.length ? Math.sqrt(r.reduce((a,v)=>a+Math.pow(v-avg2,2),0)/r.length)*Math.sqrt(12)*100 : 0;
+    // Max DD
+    let pk=1,vl=1,dd=0; r.forEach(rv=>{vl*=(1+rv);if(vl>pk)pk=vl;const d=(vl-pk)/pk*100;if(d<dd)dd=d;});
+    // Sharpe
+    const ex = r.map(rv=>rv-rfM); const exA = ex.reduce((a,b)=>a+b,0)/Math.max(ex.length,1);
+    const std3 = Math.sqrt(ex.reduce((a,v)=>a+Math.pow(v-exA,2),0)/Math.max(ex.length,1))*Math.sqrt(12);
+    const sh = std3>0?(exA/std3*Math.sqrt(12)).toFixed(2):"--";
+    // Beta
+    const spxA = spxSlice.reduce((a,b)=>a+b,0)/Math.max(spxSlice.length,1);
+    const cov2 = r.reduce((s,rv,i)=>s+(rv-avg2)*((spxSlice[i]||0)-spxA),0)/Math.max(r.length,1);
+    const spxV = spxSlice.reduce((s,rv)=>s+Math.pow(rv-spxA,2),0)/Math.max(spxSlice.length,1);
+    const bt = spxV>0?(cov2/spxV).toFixed(2):"--";
+    // P&L
+    const plPct = ((p.currentPrice||p.buyPrice)-p.buyPrice)/p.buyPrice*100;
+    const ytd = ytdData[p.ticker]?.ytd;
+    const col = v => parseFloat(v)>0?"#00d4b8":parseFloat(v)<0?"#ff6b6b":"var(--dim)";
+    const w = (weights[p.ticker]*100).toFixed(1);
+    titlesH += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;font-weight:700;color:#4fa3ff;">${p.ticker}</td>
+      <td style="padding:8px;text-align:right;color:${col(ytd)};">${ytd!=null?ytd+"%":"--"}</td>
+      <td style="padding:8px;text-align:right;color:${col(plPct)};">${plPct>0?"+":""}${plPct.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;color:${std2<15?"#00d4b8":std2<25?"#ffd23f":"#ff6b6b"};">${std2.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;color:${col(dd)};">${dd.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;color:${col(sh)};">${sh}</td>
+      <td style="padding:8px;text-align:right;">${bt}</td>
+      <td style="padding:8px;text-align:right;">${w}%</td>
+    </tr>`;
+  });
+  titlesH += "</table></div>";
+  titlesWrap.innerHTML = titlesH;
+
+  // ── CORRELAZIONE ─────────────────────────────────────────────────
+  document.getElementById("correlationPanel").style.display = "block";
+  const corrWrap = document.getElementById("correlationWrap");
+  const corrTickers = tickers.filter(t => returns[t]?.length > 5);
+  let corrH = `<table style="border-collapse:collapse;font-size:10px;">
+    <tr><th style="padding:6px;"></th>`;
+  corrTickers.forEach(t => { corrH += `<th style="padding:6px;color:var(--dim);font-size:9px;">${t.replace(".MI","").replace(".PA","")}</th>`; });
+  corrH += "</tr>";
+  corrTickers.forEach(t1 => {
+    corrH += `<tr><td style="padding:6px;font-weight:700;color:var(--dim);font-size:9px;">${t1.replace(".MI","").replace(".PA","")}</td>`;
+    corrTickers.forEach(t2 => {
+      const r1 = returns[t1]||[], r2 = returns[t2]||[];
+      const len = Math.min(r1.length, r2.length);
+      const a1=r1.slice(-len).reduce((a,b)=>a+b,0)/len, a2=r2.slice(-len).reduce((a,b)=>a+b,0)/len;
+      const cov=r1.slice(-len).reduce((s,r,i)=>s+(r-a1)*(r2[r2.length-len+i]-a2),0)/len;
+      const s1=Math.sqrt(r1.reduce((s,r)=>s+Math.pow(r-a1,2),0)/r1.length);
+      const s2=Math.sqrt(r2.reduce((s,r)=>s+Math.pow(r-a2,2),0)/r2.length);
+      const corr = s1>0&&s2>0 ? cov/(s1*s2) : 1;
+      const c = corr>0.7?"#ff6b6b":corr>0.3?"#ffd23f":"#00d4b8";
+      corrH += `<td style="padding:6px;text-align:center;background:${c}22;color:${c};font-weight:700;">${corr.toFixed(2)}</td>`;
+    });
+    corrH += "</tr>";
+  });
+  corrH += "</table>";
+  corrWrap.innerHTML = corrH;
+
+  // ── FRONTIERA EFFICIENTE (Monte Carlo) ────────────────────────────
+  document.getElementById("efficientFrontierPanel").style.display = "block";
+  const simTickers = tickers.filter(t => returns[t]?.length > 5);
+  if (simTickers.length >= 2) {
+    const nSim = 5000;
+    const simRets=[], simVols=[], simSharpes=[], simWeights=[];
+    const retVec = simTickers.map(t => { const r=returns[t]; return r.reduce((a,b)=>a+b,0)/r.length*12; });
+    for (let s = 0; s < nSim; s++) {
+      const w = simTickers.map(() => Math.random());
+      const sum = w.reduce((a,b)=>a+b,0);
+      const wn = w.map(v=>v/sum);
+      const pRet = wn.reduce((a,v,i)=>a+v*retVec[i],0)*100;
+      // Portfolio variance
+      let pVar = 0;
+      simTickers.forEach((t1,i) => {
+        simTickers.forEach((t2,j) => {
+          const r1=returns[t1], r2=returns[t2];
+          const len=Math.min(r1.length,r2.length);
+          const a1=r1.reduce((a,b)=>a+b,0)/r1.length, a2=r2.reduce((a,b)=>a+b,0)/r2.length;
+          const cov=r1.slice(-len).reduce((s,r,k)=>s+(r-a1)*(r2[r2.length-len+k]-a2),0)/len;
+          pVar += wn[i]*wn[j]*cov;
+        });
+      });
+      const pVol = Math.sqrt(pVar*12)*100;
+      const pSh = pVol>0?(pRet-3.5)/pVol:0;
+      simRets.push(pRet); simVols.push(pVol); simSharpes.push(pSh); simWeights.push(wn);
+    }
+    // Current portfolio point
+    const currVol = volAnn; const currRet = retAnn;
+    // Best Sharpe
+    const bestIdx = simSharpes.indexOf(Math.max(...simSharpes));
+
+    if (efChart) { efChart.destroy(); efChart = null; }
+    const ctx = document.getElementById("efficientFrontierChart").getContext("2d");
+    efChart = new Chart(ctx, {
+      type:"scatter",
+      data:{datasets:[
+        { label:"Portafogli simulati", data: simVols.map((v,i)=>({x:v,y:simRets[i]})),
+          backgroundColor: simSharpes.map(s => {
+            const n = (s-Math.min(...simSharpes))/(Math.max(...simSharpes)-Math.min(...simSharpes));
+            return `rgba(${Math.round(255*(1-n))},${Math.round(212*n)},${Math.round(184*n)},0.4)`;
+          }), pointRadius:2 },
+        { label:"Portafoglio attuale", data:[{x:currVol,y:currRet}], backgroundColor:"#ffd23f", pointRadius:10, pointStyle:"star" },
+        { label:`Max Sharpe (${simSharpes[bestIdx].toFixed(2)})`, data:[{x:simVols[bestIdx],y:simRets[bestIdx]}], backgroundColor:"#00d4b8", pointRadius:10, pointStyle:"triangle" }
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:"#7d8aa3",font:{size:11}}},
+          tooltip:{callbacks:{label:c=>`Vol: ${c.parsed.x.toFixed(1)}% | Ret: ${c.parsed.y.toFixed(1)}%`}}},
+        scales:{
+          x:{title:{display:true,text:"Volatilità (%)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}},
+          y:{title:{display:true,text:"Rendimento (%)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}}
+        }
+      }
+    });
+
+    // Best Sharpe weights
+    const bestW = simWeights[bestIdx];
+    const bestWStr = simTickers.map((t,i)=>`${t}: ${(bestW[i]*100).toFixed(1)}%`).join(" | ");
+    document.getElementById("efficientFrontierPanel").innerHTML +=
+      `<div style="font-size:10px;color:var(--dim);margin-top:8px;">🏆 Portafoglio ottimale (Max Sharpe): ${bestWStr}</div>`;
+  }
+
+  progress.style.display = "none";
+  msg.textContent = "";
+};
 
 </script>
 </body>
