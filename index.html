@@ -5179,7 +5179,6 @@ window.loadPortfolioStats = async function() {
       const minS = Math.min(...simSharpes), maxS = Math.max(...simSharpes);
 
       if (efChart) { efChart.destroy(); efChart = null; }
-      console.log("Frontier - Portfolio attuale:", {volAnn, retAnn, simCount:simRets.length});
       const portX = isNaN(volAnn) ? null : parseFloat(volAnn.toFixed(2));
       const portY = isNaN(retAnn) ? null : parseFloat(retAnn.toFixed(2));
       const ctx = document.getElementById("efficientFrontierChart").getContext("2d");
