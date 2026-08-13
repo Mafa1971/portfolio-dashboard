@@ -108,7 +108,7 @@ td:first-child,td:nth-child(2){text-align:left;}
 .tab-btn:hover{color:var(--txt);}
 .tab-icon{font-size:18px;line-height:1;}
 .tab-label{font-size:9px;letter-spacing:0.5px;font-weight:600;text-transform:uppercase;}
-.tab-content{display:none;padding-bottom:80px;}
+.tab-content{display:none;padding-bottom:120px;}
 .tab-content.active{display:block;}
 body{padding-bottom:0;}
 
@@ -321,7 +321,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
     <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
   </div>
-  <div class="panel" id="efficientFrontierPanel" style="display:none;">
+  <div class="panel" id="efficientFrontierPanel" style="display:none;overflow:visible;">
     <div class="panel-title">FRONTIERA EFFICIENTE <span style="font-size:10px;color:var(--dim);">(Monte Carlo 2000 portafogli)</span></div>
     <div style="position:relative;height:320px;max-height:320px;">
       <canvas id="efficientFrontierChart"></canvas>
