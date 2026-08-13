@@ -262,25 +262,6 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       <div class="empty-state"><div class="ic">◌</div><p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p></div>
     </div>
   </div>
-  <!-- CHARTS -->
-  <div class="panel">
-    <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
-    <div class="chart-row">
-      <div>
-        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER TITOLO</div>
-        <div class="chart-wrap"><canvas id="chartByTicker"></canvas></div>
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER SETTORE</div>
-        <div class="chart-wrap"><canvas id="chartBySector"></canvas></div>
-      </div>
-    </div>
-  </div>
-  <!-- CAPITAL CHART -->
-  <div class="panel">
-    <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
-    <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
-  </div>
 </div>
 
 <!-- TAB STATISTICHE -->
@@ -322,6 +303,23 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <div class="panel" id="correlationPanel" style="display:none;">
     <div class="panel-title">CORRELAZIONE TRA TITOLI</div>
     <div id="correlationWrap" style="overflow-x:auto;"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
+    <div class="chart-row">
+      <div>
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER TITOLO</div>
+        <div class="chart-wrap"><canvas id="chartByTicker"></canvas></div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px;text-align:center;">PER SETTORE</div>
+        <div class="chart-wrap"><canvas id="chartBySector"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
+    <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
   </div>
   <div class="panel" id="efficientFrontierPanel" style="display:none;">
     <div class="panel-title">FRONTIERA EFFICIENTE (Monte Carlo 5000 portafogli)</div>
@@ -4903,7 +4901,7 @@ window.loadPortfolioStats = async function() {
     msg.textContent = `⏳ Caricamento ${t} (${done+1}/${allTickers.length})...`;
     bar.style.width = `${Math.round((done/allTickers.length)*100)}%`;
     try {
-      const res = await fetchYahoo(t, "5y", "1mo");
+      const res = await fetchSectorData(t, "5y", "1mo");
       const result = res?.chart?.result?.[0];
       const rawCloses = result?.indicators?.quote?.[0]?.close || [];
       const timestamps = result?.timestamp || [];
@@ -4918,7 +4916,7 @@ window.loadPortfolioStats = async function() {
   const ytdData = {};
   for (const t of tickers) {
     try {
-      const res = await fetchYahoo(t, "1y", "1d");
+      const res = await fetchSectorData(t, "1y", "1d");
       const result = res?.chart?.result?.[0];
       const closes = result?.indicators?.quote?.[0]?.close || [];
       const timestamps = result?.timestamp || [];
