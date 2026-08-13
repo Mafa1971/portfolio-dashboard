@@ -1353,7 +1353,9 @@ async function saveUserSettings() {
       currency: w.currency || null,
       notes: w.notes || "",
       alertPrice: w.alertPrice || null,
-      alertSupport: w.alertSupport || null
+      alertSupport: w.alertSupport || null,
+      alertPriceNote: w.alertPriceNote || null,
+      alertSupportNote: w.alertSupportNote || null
     }));
     await sbFetch("user_settings?on_conflict=user_id", "POST", [{
       user_id: currentUser,
