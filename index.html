@@ -5179,6 +5179,9 @@ window.loadPortfolioStats = async function() {
       const minS = Math.min(...simSharpes), maxS = Math.max(...simSharpes);
 
       if (efChart) { efChart.destroy(); efChart = null; }
+      console.log("Frontier - Portfolio attuale:", {volAnn, retAnn, simCount:simRets.length});
+      const portX = isNaN(volAnn) ? null : parseFloat(volAnn.toFixed(2));
+      const portY = isNaN(retAnn) ? null : parseFloat(retAnn.toFixed(2));
       const ctx = document.getElementById("efficientFrontierChart").getContext("2d");
       efChart = new Chart(ctx, {
         type:"scatter",
@@ -5191,11 +5194,13 @@ window.loadPortfolioStats = async function() {
             }),
             pointRadius:2, pointHoverRadius:4 },
           { label:"⭐ Portafoglio attuale", 
-            data:[{x:parseFloat(volAnn.toFixed(2)),y:parseFloat(retAnn.toFixed(2))}], 
-            backgroundColor:"#ffd23f", pointRadius:10, pointHoverRadius:12, pointStyle:"star" },
+            data: portX!=null && portY!=null ? [{x:portX, y:portY}] : [],
+            backgroundColor:"#ffd23f", pointRadius:12, pointHoverRadius:14, pointStyle:"star",
+            borderColor:"#ffd23f", borderWidth:2 },
           { label:`🔺 Ottimale Sharpe ${simSharpes[bestIdx].toFixed(2)}`, 
             data:[{x:parseFloat(simVols[bestIdx].toFixed(2)),y:parseFloat(simRets[bestIdx].toFixed(2))}], 
-            backgroundColor:"#00d4b8", pointRadius:10, pointHoverRadius:12, pointStyle:"triangle" }
+            backgroundColor:"#00d4b8", pointRadius:12, pointHoverRadius:14, pointStyle:"triangle",
+            borderColor:"#00d4b8", borderWidth:2 }
         ]},
         options:{
           responsive:true, maintainAspectRatio:false,
