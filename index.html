@@ -780,12 +780,20 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         </select>
       </div>
       <div class="fg" style="grid-column:span 2">
-        <label>🔴 Resistenza (avviso zona ±2% sotto questo livello)</label>
+        <label>🔴 Resistenza — prezzo livello</label>
         <input type="number" id="wAlertPrice" step="any" placeholder="es. 205.00">
       </div>
       <div class="fg" style="grid-column:span 2">
-        <label>🟡 Supporto (avviso zona ±2% sopra questo livello)</label>
+        <label>🔴 Nota Resistenza (alert Telegram)</label>
+        <input type="text" id="wAlertPriceNote" placeholder="es. Massimi storici — possibile correzione">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>🟡 Supporto — prezzo livello</label>
         <input type="number" id="wAlertSupport" step="any" placeholder="es. 180.00">
+      </div>
+      <div class="fg" style="grid-column:span 2">
+        <label>🟡 Nota Supporto (alert Telegram)</label>
+        <input type="text" id="wAlertSupportNote" placeholder="es. Zona domanda — attendi pattern di conferma">
       </div>
       <div class="fg" style="grid-column:span 2">
         <label>Etichetta Fair Value</label>
@@ -3291,7 +3299,8 @@ async function checkWatchlistAlerts() {
       // Zona: [res-3%, res+3%]
       if (w.price >= res * (1 - thr) && w.price <= res * (1 + thr) && !alertedTickers.has(keyRes)) {
         alertedTickers.add(keyRes); saveAlertedTickers();
-        const msg = `🔴 <b>ZONA RESISTENZA — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza: <b>${res.toFixed(2)}</b>\n📊 Range zona: ${(res*(1-thr)).toFixed(2)} — ${(res*(1+thr)).toFixed(2)}\n\n⚠️ Prezzo nella zona resistenza — possibile target/sell\n👤 ${currentUser.toUpperCase()}`;
+        const resNote = w.alertPriceNote ? `\n📝 ${w.alertPriceNote}` : "";
+        const msg = `🔴 <b>ZONA RESISTENZA — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza: <b>${res.toFixed(2)}</b>\n📊 Range: ${(res*(1-thr)).toFixed(2)} — ${(res*(1+thr)).toFixed(2)}${resNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
@@ -3303,7 +3312,8 @@ async function checkWatchlistAlerts() {
       // BREAKOUT — prezzo supera res+3%
       if (w.price > res * (1 + thr) && !alertedTickers.has(keyBreak)) {
         alertedTickers.add(keyBreak); saveAlertedTickers();
-        const msg = `🚀 <b>BREAKOUT — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza superata: <b>${res.toFixed(2)} +3%</b>\n\n✅ Possibile ingresso in breakout\n👤 ${currentUser.toUpperCase()}`;
+        const resNote2 = w.alertPriceNote ? `\n📝 ${w.alertPriceNote}` : "";
+        const msg = `🚀 <b>BREAKOUT — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza superata: <b>${res.toFixed(2)}</b>${resNote2}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
@@ -3322,7 +3332,8 @@ async function checkWatchlistAlerts() {
       // Zona: [sup-3%, sup+3%]
       if (w.price >= sup * (1 - thr) && w.price <= sup * (1 + thr) && !alertedTickers.has(keySup)) {
         alertedTickers.add(keySup); saveAlertedTickers();
-        const msg = `🟡 <b>ZONA SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${sup.toFixed(2)}</b>\n📊 Range zona: ${(sup*(1-thr)).toFixed(2)} — ${(sup*(1+thr)).toFixed(2)}\n\n🔍 Prezzo nella zona supporto — attendi pattern di conferma\n👤 ${currentUser.toUpperCase()}`;
+        const supNote = w.alertSupportNote ? `\n📝 ${w.alertSupportNote}` : "";
+        const msg = `🟡 <b>ZONA SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${sup.toFixed(2)}</b>\n📊 Range: ${(sup*(1-thr)).toFixed(2)} — ${(sup*(1+thr)).toFixed(2)}${supNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
@@ -3333,7 +3344,8 @@ async function checkWatchlistAlerts() {
       // SOTTO SUPPORTO — prezzo scende sotto sup-3%
       if (w.price < sup * (1 - thr) && !alertedTickers.has(keyBelowSup)) {
         alertedTickers.add(keyBelowSup); saveAlertedTickers();
-        const msg = `⚠️ <b>SOTTO SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto violato: <b>${sup.toFixed(2)} -3%</b>\n\n🛑 Prezzo sotto la zona supporto — valuta stop\n👤 ${currentUser.toUpperCase()}`;
+        const supNote2 = w.alertSupportNote ? `\n📝 ${w.alertSupportNote}` : "";
+        const msg = `⚠️ <b>SOTTO SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto violato: <b>${sup.toFixed(2)}</b>${supNote2}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
@@ -3369,6 +3381,8 @@ document.getElementById("btnAddWatch").addEventListener("click", () => {
   document.getElementById("wName").value = "";
   document.getElementById("wAlertPrice").value = "";
   document.getElementById("wAlertSupport").value = "";
+  if (document.getElementById("wAlertPriceNote")) document.getElementById("wAlertPriceNote").value = "";
+  if (document.getElementById("wAlertSupportNote")) document.getElementById("wAlertSupportNote").value = "";
   document.getElementById("wFairValueLabel").value = "";
   document.getElementById("wAnalystUpside").value = "";
   document.getElementById("wCashFlowLabel").value = "";
@@ -3400,6 +3414,8 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
     if (!confirm(`${ticker} è già in watchlist. Vuoi aggiornare?`)) return;
     existing.notes = notes;
     existing.alertPrice = alertPrice;
+    existing.alertPriceNote = document.getElementById("wAlertPriceNote")?.value.trim() || null;
+    existing.alertSupportNote = document.getElementById("wAlertSupportNote")?.value.trim() || null;
     existing.alertSupport = alertSupport;
     existing.sector = sector;
     if (fairValueLabel) existing.fairValueLabel = fairValueLabel;
@@ -3412,7 +3428,9 @@ document.getElementById("btnSaveWatch").addEventListener("click", () => {
     modalWatchOverlay.classList.remove("show");
     return;
   }
-  watchlist.push({ ticker, name, sector, fairValueLabel, analystUpside, cashFlowLabel, pe, marketCap, peManual: !!pe, marketCapManual: !!marketCap, price: null, high52: null, low52: null, change: null, changePct: null, currency: null, notes, alertPrice, alertSupport, industry: null, country: null });
+  const alertPriceNote = document.getElementById("wAlertPriceNote")?.value.trim() || null;
+  const alertSupportNote = document.getElementById("wAlertSupportNote")?.value.trim() || null;
+  watchlist.push({ ticker, name, sector, fairValueLabel, analystUpside, cashFlowLabel, pe, marketCap, peManual: !!pe, marketCapManual: !!marketCap, price: null, high52: null, low52: null, change: null, changePct: null, currency: null, notes, alertPrice, alertSupport, alertPriceNote, alertSupportNote, industry: null, country: null });
   saveWatchlist();
   modalWatchOverlay.classList.remove("show");
   renderWatchlist();
@@ -3816,6 +3834,8 @@ function editWatch(ticker) {
   document.getElementById("wSector").value = w.sector || "Altro";
   document.getElementById("wAlertPrice").value = w.alertPrice || "";
   document.getElementById("wAlertSupport").value = w.alertSupport || "";
+  if (document.getElementById("wAlertPriceNote")) document.getElementById("wAlertPriceNote").value = w.alertPriceNote || "";
+  if (document.getElementById("wAlertSupportNote")) document.getElementById("wAlertSupportNote").value = w.alertSupportNote || "";
   document.getElementById("wFairValueLabel").value = w.fairValueLabel || "";
   document.getElementById("wAnalystUpside").value = w.analystUpside || "";
   document.getElementById("wCashFlowLabel").value = w.cashFlowLabel || "";
@@ -3955,8 +3975,10 @@ function renderWatchlist() {
       : "--";
 
     const noteText = w.notes ? `<div style="font-size:10px;color:var(--dim);">${w.notes}</div>` : "";
-    const alertText = w.alertPrice ? `<div style="font-size:10px;color:#00d4b8;">🟢 BUY: ${sym}${w.alertPrice}</div>` : "";
-    const supportText = w.alertSupport ? `<div style="font-size:10px;color:#4fa3ff;">🔵 SUP: ${sym}${w.alertSupport}</div>` : "";
+    const resNoteText = w.alertPrice ? `<div style="font-size:10px;color:#ff6b6b80;">🔴 R: ${sym}${w.alertPrice}${w.alertPriceNote ? " — "+w.alertPriceNote : ""}</div>` : "";
+    const supNoteText = w.alertSupport ? `<div style="font-size:10px;color:#ffd23f80;">🟡 S: ${sym}${w.alertSupport}${w.alertSupportNote ? " — "+w.alertSupportNote : ""}</div>` : "";
+    const alertText = "";
+    const supportText = "";
     const inPort = positions.some(p => p.ticker === w.ticker);
 
     h += `<tr style="border-top:1px solid #1a2030;${inPort?'background:#00d4b808;border-left:3px solid #00d4b844;':''}">
@@ -3996,7 +4018,7 @@ function renderWatchlist() {
       <td style="text-align:right;padding:9px 8px;font-size:11px;color:var(--dim);">
         ${w.pe != null ? w.pe + "x" : "--"}
       </td>
-      <td style="padding:9px 8px;">${noteText}${alertText}${supportText}</td>
+      <td style="padding:9px 8px;">${noteText}${resNoteText}${supNoteText}</td>
       <td style="padding:9px 4px;white-space:nowrap;">
         <button class="icon-btn" onclick="editWatch('${w.ticker}')" title="Modifica" style="color:var(--blue);">✎</button>
         <button onclick="buyFromWatchlist('${w.ticker}')" style="background:linear-gradient(135deg,var(--grad1),var(--grad2));color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">BUY</button>
