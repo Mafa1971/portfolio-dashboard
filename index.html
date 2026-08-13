@@ -323,7 +323,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   </div>
   <div class="panel" id="efficientFrontierPanel" style="display:none;">
     <div class="panel-title">FRONTIERA EFFICIENTE <span style="font-size:10px;color:var(--dim);">(Monte Carlo 2000 portafogli)</span></div>
-    <div style="position:relative;height:420px;">
+    <div style="position:relative;height:320px;max-height:320px;">
       <canvas id="efficientFrontierChart"></canvas>
     </div>
   </div>
@@ -5161,22 +5161,39 @@ window.loadPortfolioStats = async function() {
       efChart = new Chart(ctx, {
         type:"scatter",
         data:{datasets:[
-          { label:"Portafogli simulati (colore = Sharpe)", data: simVols.map((v,i)=>({x:v,y:simRets[i]})),
+          { label:"Portafogli simulati", 
+            data: simVols.map((v,i)=>({x:parseFloat(v.toFixed(2)),y:parseFloat(simRets[i].toFixed(2))})),
             backgroundColor: simSharpes.map(s => {
               const n = maxS>minS?(s-minS)/(maxS-minS):0.5;
-              return `rgba(${Math.round(255*(1-n))},${Math.round(180*n)},${Math.round(150*n)},0.5)`;
-            }), pointRadius:3 },
-          { label:`⭐ Portafoglio attuale`, data:[{x:volAnn,y:retAnn}], backgroundColor:"#ffd23f", pointRadius:12, pointStyle:"star" },
-          { label:`🔺 Max Sharpe ${simSharpes[bestIdx].toFixed(2)}`, data:[{x:simVols[bestIdx],y:simRets[bestIdx]}], backgroundColor:"#00d4b8", pointRadius:12, pointStyle:"triangle" }
+              return `rgba(${Math.round(255*(1-n))},${Math.round(180*n)},${Math.round(100*n)},0.6)`;
+            }),
+            pointRadius:2, pointHoverRadius:4 },
+          { label:"⭐ Portafoglio attuale", 
+            data:[{x:parseFloat(volAnn.toFixed(2)),y:parseFloat(retAnn.toFixed(2))}], 
+            backgroundColor:"#ffd23f", pointRadius:10, pointHoverRadius:12, pointStyle:"star" },
+          { label:`🔺 Ottimale Sharpe ${simSharpes[bestIdx].toFixed(2)}`, 
+            data:[{x:parseFloat(simVols[bestIdx].toFixed(2)),y:parseFloat(simRets[bestIdx].toFixed(2))}], 
+            backgroundColor:"#00d4b8", pointRadius:10, pointHoverRadius:12, pointStyle:"triangle" }
         ]},
         options:{
           responsive:true, maintainAspectRatio:false,
-          plugins:{legend:{labels:{color:"#7d8aa3",font:{size:11},boxWidth:14}},
-            tooltip:{callbacks:{label:c=>`Vol: ${c.parsed.x.toFixed(1)}% | Ret: ${c.parsed.y.toFixed(1)}%`}}},
+          plugins:{
+            legend:{labels:{color:"#7d8aa3",font:{size:10},boxWidth:12,padding:10}},
+            tooltip:{callbacks:{label:c=>`Volatilità: ${c.parsed.x.toFixed(1)}% | Rendimento: ${c.parsed.y.toFixed(1)}%`}}
+          },
           scales:{
-            x:{title:{display:true,text:"Volatilità % (rischio)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}},
-            y:{title:{display:true,text:"Rendimento % atteso",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}}
-          }
+            x:{
+              title:{display:true,text:"Rischio — Volatilità (%)",color:"#7d8aa3",font:{size:10}},
+              ticks:{color:"#7d8aa3",font:{size:9}},
+              grid:{color:"#1e2d45"}
+            },
+            y:{
+              title:{display:true,text:"Rendimento atteso (%)",color:"#7d8aa3",font:{size:10}},
+              ticks:{color:"#7d8aa3",font:{size:9}},
+              grid:{color:"#1e2d45"}
+            }
+          },
+          animation:{duration:0}
         }
       });
 
