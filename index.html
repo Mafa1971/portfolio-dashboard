@@ -262,11 +262,6 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
       <div class="empty-state"><div class="ic">◌</div><p>NESSUNA POSIZIONE — AGGIUNGINE UNA PER INIZIARE</p></div>
     </div>
   </div>
-  <!-- RISCHIO PORTAFOGLIO -->
-  <div class="panel">
-    <div class="panel-title">RISCHIO PORTAFOGLIO</div>
-    <div id="riskWrap"><div class="empty-state"><p>IMPOSTA GLI STOP LOSS PER VEDERE IL RISCHIO</p></div></div>
-  </div>
   <!-- CHARTS -->
   <div class="panel">
     <div class="panel-title">ALLOCAZIONE PORTAFOGLIO</div>
@@ -304,9 +299,13 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 <!-- TAB STATISTICHE PORTAFOGLIO (nuova) -->
 <div id="tabStatPortafoglio" class="tab-content">
   <div class="panel">
+    <div class="panel-title">RISCHIO PORTAFOGLIO</div>
+    <div id="riskWrap"><div class="empty-state"><p>IMPOSTA GLI STOP LOSS PER VEDERE IL RISCHIO</p></div></div>
+  </div>
+  <div class="panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-      <div class="panel-title" style="margin:0;">STATISTICHE PORTAFOGLIO</div>
-      <button onclick="loadPortfolioStats()" class="btn primary" style="font-size:11px;padding:6px 14px;">📊 Calcola (5 anni)</button>
+      <div class="panel-title" style="margin:0;">ANALISI QUANTITATIVA (5 anni)</div>
+      <button onclick="loadPortfolioStats()" class="btn primary" style="font-size:11px;padding:6px 14px;">📊 Calcola</button>
     </div>
     <div id="portfolioStatsProgress" style="display:none;margin-bottom:12px;">
       <div style="font-size:11px;color:var(--dim);margin-bottom:6px;" id="portfolioStatsMsg">⏳ Caricamento dati storici...</div>
@@ -4906,9 +4905,11 @@ window.loadPortfolioStats = async function() {
     try {
       const res = await fetchYahoo(t, "5y", "1mo");
       const result = res?.chart?.result?.[0];
-      const closes = result?.indicators?.quote?.[0]?.close || [];
+      const rawCloses = result?.indicators?.quote?.[0]?.close || [];
       const timestamps = result?.timestamp || [];
-      if (closes.length > 10) allData[t] = { closes, timestamps };
+      const closes = rawCloses.map(v => (v != null && !isNaN(v)) ? v : null);
+      const validCloses = closes.filter(v => v != null);
+      if (validCloses.length > 10) allData[t] = { closes: validCloses, timestamps };
     } catch(e) { console.error(t, e); }
     done++;
   }
@@ -4952,15 +4953,24 @@ window.loadPortfolioStats = async function() {
 
   // Portfolio monthly returns (weighted)
   const spxR = returns["^GSPC"] || [];
-  const minLen = Math.min(...tickers.map(t => (returns[t]||[]).length), spxR.length);
+  const availTickers = tickers.filter(t => (returns[t]||[]).length > 5);
+  if (availTickers.length === 0 || spxR.length < 5) {
+    wrap.innerHTML = "<div class='empty-state'><p>Dati storici insufficienti — riprova tra qualche secondo</p></div>";
+    progress.style.display="none"; return;
+  }
+  const minLen = Math.min(...availTickers.map(t => returns[t].length), spxR.length);
   const portR = [];
   for (let i = 0; i < minLen; i++) {
-    let r = 0;
-    tickers.forEach(t => { if (returns[t]?.[i] != null) r += (returns[t][i] * (weights[t]||0)); });
-    portR.push(r);
+    let r = 0, wSum = 0;
+    availTickers.forEach(t => {
+      const rv = returns[t]?.[returns[t].length - minLen + i];
+      if (rv != null && !isNaN(rv)) { r += rv * (weights[t]||0); wSum += (weights[t]||0); }
+    });
+    if (wSum > 0) portR.push(r / wSum);
   }
 
   // Portfolio statistics
+  if (portR.length < 3) { wrap.innerHTML = "<div class='empty-state'><p>Dati insufficienti per il calcolo</p></div>"; progress.style.display="none"; return; }
   const avg = portR.reduce((a,b)=>a+b,0)/portR.length;
   const std = Math.sqrt(portR.reduce((a,r)=>a+Math.pow(r-avg,2),0)/portR.length);
   const volAnn = std * Math.sqrt(12) * 100;
