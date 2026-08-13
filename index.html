@@ -5004,21 +5004,33 @@ window.loadPortfolioStats = async function() {
   const totalPlPct = (totalPL/totalInv*100).toFixed(1);
 
   // ── RENDER STATS ──────────────────────────────────────────────────
+  const infoTip = (id,text) => `<span onclick="document.getElementById('tip_${id}').style.display=document.getElementById('tip_${id}').style.display==='none'?'block':'none'" style="cursor:pointer;font-size:11px;color:var(--dim);margin-left:4px;" title="${text}">ℹ️</span><div id="tip_${id}" style="display:none;font-size:10px;color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:6px;line-height:1.5;">${text}</div>`;
+
   const cards = [
-    {l:"Rendimento Totale", v:`${totalPlPct>0?"+":""}${totalPlPct}%`, sub:`€${totalPL.toFixed(0)}`, col:totalPlPct>0?"#00d4b8":"#ff6b6b"},
-    {l:"Rendimento Ann.", v:`${retAnn>0?"+":""}${retAnn.toFixed(1)}%`, sub:"storico 5y", col:retAnn>0?"#00d4b8":"#ff6b6b"},
-    {l:"CAGR", v:`${cagr>0?"+":""}${cagr.toFixed(1)}%`, sub:"annuo composto", col:cagr>0?"#00d4b8":"#ff6b6b"},
-    {l:"Volatilità", v:`${volAnn.toFixed(1)}%`, sub:"ann. mensile", col:volAnn<15?"#00d4b8":volAnn<25?"#ffd23f":"#ff6b6b"},
-    {l:"Max Drawdown", v:`${maxDD.toFixed(1)}%`, sub:"peggiore calo", col:maxDD>-10?"#00d4b8":maxDD>-20?"#ffd23f":"#ff6b6b"},
-    {l:"Sharpe Ratio", v:sharpe, sub:"rendimento/rischio", col:sharpe>1?"#00d4b8":sharpe>0.5?"#ffd23f":"#ff6b6b"},
-    {l:"Sortino Ratio", v:sortino, sub:"rischio al ribasso", col:sortino>1?"#00d4b8":sortino>0.5?"#ffd23f":"#ff6b6b"},
-    {l:"Beta (vs SP500)", v:beta, sub:beta<1?"meno volatile":"più volatile", col:beta<0.8?"#00d4b8":beta<1.2?"#ffd23f":"#ff6b6b"},
+    {id:"rt", l:"Rendimento Totale", v:`${totalPlPct>0?"+":""}${totalPlPct}%`, sub:`€${totalPL.toFixed(0)}`, col:totalPlPct>0?"#00d4b8":"#ff6b6b",
+     info:"P&L totale non realizzato su tutte le posizioni aperte rispetto al prezzo di acquisto."},
+    {id:"ra", l:"Rendimento Ann.", v:`${retAnn>0?"+":""}${retAnn.toFixed(1)}%`, sub:"storico 5y mensile", col:retAnn>0?"#00d4b8":"#ff6b6b",
+     info:"Rendimento medio annualizzato calcolato sui rendimenti mensili storici degli ultimi 5 anni del portafoglio ponderato per i pesi attuali."},
+    {id:"cagr", l:"CAGR", v:`${cagr>0?"+":""}${cagr.toFixed(1)}%`, sub:"tasso crescita annuo", col:cagr>0?"#00d4b8":"#ff6b6b",
+     info:"Compound Annual Growth Rate: il tasso di crescita annuo composto che avrebbe trasformato il valore iniziale in quello finale. Più accurato del rendimento semplice per periodi lunghi."},
+    {id:"vol", l:"Volatilità", v:`${volAnn.toFixed(1)}%`, sub:"deviazione std ann.", col:volAnn<15?"#00d4b8":volAnn<25?"#ffd23f":"#ff6b6b",
+     info:"Deviazione standard annualizzata dei rendimenti mensili. Misura quanto oscillano i rendimenti: <15% bassa, 15-25% media, >25% alta. Un valore alto = maggiore incertezza."},
+    {id:"dd", l:"Max Drawdown", v:`${maxDD.toFixed(1)}%`, sub:"peggiore calo storico", col:maxDD>-10?"#00d4b8":maxDD>-20?"#ffd23f":"#ff6b6b",
+     info:"La perdita percentuale massima dal punto di massimo (picco) al punto di minimo (valle) nel periodo analizzato. Indica il peggior scenario che avresti vissuto detenendo questo portafoglio."},
+    {id:"sh", l:"Sharpe Ratio", v:sharpe, sub:"rendimento/rischio totale", col:parseFloat(sharpe)>1?"#00d4b8":parseFloat(sharpe)>0.5?"#ffd23f":"#ff6b6b",
+     info:"Misura il rendimento extra rispetto al tasso privo di rischio (3.5%) diviso per la volatilità totale. >1 ottimo, 0.5-1 buono, <0.5 scarso. Penalizza tutte le oscillazioni, sia positive che negative."},
+    {id:"so", l:"Sortino Ratio", v:sortino, sub:"rischio al ribasso", col:parseFloat(sortino)>1?"#00d4b8":parseFloat(sortino)>0.5?"#ffd23f":"#ff6b6b",
+     info:"Simile allo Sharpe ma considera solo la volatilità negativa (perdite). Più favorevole ai portafogli con molti rialzi e poche perdite. >1 ottimo, >0.5 buono. Preferibile allo Sharpe per valutare fondi long-only."},
+    {id:"beta", l:"Beta (vs SP500)", v:beta, sub:parseFloat(beta)<1?"meno volatile del mercato":"più volatile del mercato", col:parseFloat(beta)<0.8?"#00d4b8":parseFloat(beta)<1.2?"#ffd23f":"#ff6b6b",
+     info:"Misura la sensibilità del portafoglio rispetto all'S&P 500. Beta=1: si muove come il mercato. Beta>1: amplifica i movimenti (più rischioso). Beta<1: meno volatile. Beta negativo: si muove in senso opposto al mercato."},
   ];
 
-  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
     ${cards.map(c=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;">
-      <div style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${c.l}</div>
-      <div style="font-size:20px;font-weight:800;color:${c.col};">${c.v}</div>
+      <div style="display:flex;align-items:center;font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">
+        ${c.l}${infoTip(c.id,c.info)}
+      </div>
+      <div style="font-size:22px;font-weight:800;color:${c.col};">${c.v}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:3px;">${c.sub}</div>
     </div>`).join("")}
   </div>`;
@@ -5101,65 +5113,77 @@ window.loadPortfolioStats = async function() {
 
   // ── FRONTIERA EFFICIENTE (Monte Carlo) ────────────────────────────
   document.getElementById("efficientFrontierPanel").style.display = "block";
+  msg.textContent = "⚙️ Monte Carlo in corso...";
+  progress.style.display = "block";
+
   const simTickers = tickers.filter(t => returns[t]?.length > 5);
   if (simTickers.length >= 2) {
-    const nSim = 5000;
+    // Pre-calcola matrice covarianza (ottimizzazione)
+    const covMatrix = {};
+    simTickers.forEach((t1,i) => {
+      simTickers.forEach((t2,j) => {
+        if (j < i) { covMatrix[`${i}_${j}`] = covMatrix[`${j}_${i}`]; return; }
+        const r1=returns[t1], r2=returns[t2];
+        const len=Math.min(r1.length,r2.length);
+        const a1=r1.slice(-len).reduce((a,b)=>a+b,0)/len;
+        const a2=r2.slice(-len).reduce((a,b)=>a+b,0)/len;
+        covMatrix[`${i}_${j}`]=r1.slice(-len).reduce((s,r,k)=>s+(r-a1)*(r2[r2.length-len+k]-a2),0)/len;
+      });
+    });
+
+    const nSim = 2000;
     const simRets=[], simVols=[], simSharpes=[], simWeights=[];
     const retVec = simTickers.map(t => { const r=returns[t]; return r.reduce((a,b)=>a+b,0)/r.length*12; });
+
     for (let s = 0; s < nSim; s++) {
       const w = simTickers.map(() => Math.random());
       const sum = w.reduce((a,b)=>a+b,0);
       const wn = w.map(v=>v/sum);
       const pRet = wn.reduce((a,v,i)=>a+v*retVec[i],0)*100;
-      // Portfolio variance
       let pVar = 0;
-      simTickers.forEach((t1,i) => {
-        simTickers.forEach((t2,j) => {
-          const r1=returns[t1], r2=returns[t2];
-          const len=Math.min(r1.length,r2.length);
-          const a1=r1.reduce((a,b)=>a+b,0)/r1.length, a2=r2.reduce((a,b)=>a+b,0)/r2.length;
-          const cov=r1.slice(-len).reduce((s,r,k)=>s+(r-a1)*(r2[r2.length-len+k]-a2),0)/len;
-          pVar += wn[i]*wn[j]*cov;
-        });
-      });
-      const pVol = Math.sqrt(pVar*12)*100;
+      for (let i=0;i<simTickers.length;i++) for (let j=0;j<simTickers.length;j++) pVar+=wn[i]*wn[j]*(covMatrix[`${i}_${j}`]||0);
+      const pVol = Math.sqrt(Math.max(0,pVar)*12)*100;
       const pSh = pVol>0?(pRet-3.5)/pVol:0;
-      simRets.push(pRet); simVols.push(pVol); simSharpes.push(pSh); simWeights.push(wn);
+      if (!isNaN(pRet) && !isNaN(pVol)) { simRets.push(pRet); simVols.push(pVol); simSharpes.push(pSh); simWeights.push(wn); }
     }
-    // Current portfolio point
-    const currVol = volAnn; const currRet = retAnn;
-    // Best Sharpe
-    const bestIdx = simSharpes.indexOf(Math.max(...simSharpes));
 
-    if (efChart) { efChart.destroy(); efChart = null; }
-    const ctx = document.getElementById("efficientFrontierChart").getContext("2d");
-    efChart = new Chart(ctx, {
-      type:"scatter",
-      data:{datasets:[
-        { label:"Portafogli simulati", data: simVols.map((v,i)=>({x:v,y:simRets[i]})),
-          backgroundColor: simSharpes.map(s => {
-            const n = (s-Math.min(...simSharpes))/(Math.max(...simSharpes)-Math.min(...simSharpes));
-            return `rgba(${Math.round(255*(1-n))},${Math.round(212*n)},${Math.round(184*n)},0.4)`;
-          }), pointRadius:2 },
-        { label:"Portafoglio attuale", data:[{x:currVol,y:currRet}], backgroundColor:"#ffd23f", pointRadius:10, pointStyle:"star" },
-        { label:`Max Sharpe (${simSharpes[bestIdx].toFixed(2)})`, data:[{x:simVols[bestIdx],y:simRets[bestIdx]}], backgroundColor:"#00d4b8", pointRadius:10, pointStyle:"triangle" }
-      ]},
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{labels:{color:"#7d8aa3",font:{size:11}}},
-          tooltip:{callbacks:{label:c=>`Vol: ${c.parsed.x.toFixed(1)}% | Ret: ${c.parsed.y.toFixed(1)}%`}}},
-        scales:{
-          x:{title:{display:true,text:"Volatilità (%)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}},
-          y:{title:{display:true,text:"Rendimento (%)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}}
+    if (simRets.length < 10) {
+      document.getElementById("efficientFrontierPanel").innerHTML = `<div class="panel-title">FRONTIERA EFFICIENTE</div><div class="empty-state"><p>Dati insufficienti per il calcolo</p></div>`;
+    } else {
+      const bestIdx = simSharpes.indexOf(Math.max(...simSharpes));
+      const minS = Math.min(...simSharpes), maxS = Math.max(...simSharpes);
+
+      if (efChart) { efChart.destroy(); efChart = null; }
+      const ctx = document.getElementById("efficientFrontierChart").getContext("2d");
+      efChart = new Chart(ctx, {
+        type:"scatter",
+        data:{datasets:[
+          { label:"Portafogli simulati (colore = Sharpe)", data: simVols.map((v,i)=>({x:v,y:simRets[i]})),
+            backgroundColor: simSharpes.map(s => {
+              const n = maxS>minS?(s-minS)/(maxS-minS):0.5;
+              return `rgba(${Math.round(255*(1-n))},${Math.round(180*n)},${Math.round(150*n)},0.5)`;
+            }), pointRadius:3 },
+          { label:`⭐ Portafoglio attuale`, data:[{x:volAnn,y:retAnn}], backgroundColor:"#ffd23f", pointRadius:12, pointStyle:"star" },
+          { label:`🔺 Max Sharpe ${simSharpes[bestIdx].toFixed(2)}`, data:[{x:simVols[bestIdx],y:simRets[bestIdx]}], backgroundColor:"#00d4b8", pointRadius:12, pointStyle:"triangle" }
+        ]},
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:"#7d8aa3",font:{size:11},boxWidth:14}},
+            tooltip:{callbacks:{label:c=>`Vol: ${c.parsed.x.toFixed(1)}% | Ret: ${c.parsed.y.toFixed(1)}%`}}},
+          scales:{
+            x:{title:{display:true,text:"Volatilità % (rischio)",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}},
+            y:{title:{display:true,text:"Rendimento % atteso",color:"#7d8aa3"},ticks:{color:"#7d8aa3"},grid:{color:"#1e2d45"}}
+          }
         }
-      }
-    });
+      });
 
-    // Best Sharpe weights
-    const bestW = simWeights[bestIdx];
-    const bestWStr = simTickers.map((t,i)=>`${t}: ${(bestW[i]*100).toFixed(1)}%`).join(" | ");
-    document.getElementById("efficientFrontierPanel").innerHTML +=
-      `<div style="font-size:10px;color:var(--dim);margin-top:8px;">🏆 Portafoglio ottimale (Max Sharpe): ${bestWStr}</div>`;
+      const bestW = simWeights[bestIdx];
+      const bestWStr = simTickers.map((t,i)=>`<span style="color:#00d4b8;font-weight:700;">${t}</span>: ${(bestW[i]*100).toFixed(1)}%`).join(" &nbsp;|&nbsp; ");
+      document.getElementById("efficientFrontierPanel").querySelector("canvas").insertAdjacentHTML("afterend",
+        `<div style="font-size:11px;color:var(--dim);margin-top:12px;padding:10px;background:var(--panel2);border-radius:8px;border:1px solid var(--line);">
+          🏆 <strong style="color:#00d4b8;">Pesi ottimali (Max Sharpe):</strong><br><span style="line-height:2;">${bestWStr}</span>
+         </div>`);
+    }
   }
 
   progress.style.display = "none";
