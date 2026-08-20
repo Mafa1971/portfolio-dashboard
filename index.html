@@ -3291,69 +3291,60 @@ async function checkWatchlistAlerts() {
     if (!w.price) continue;
 
 
-    // ZONA RESISTENZA — range centrato ±3% sulla resistenza
+    // RESISTENZA — alert quando prezzo raggiunge o supera il livello
     if (w.alertPrice && w.price != null) {
       const res = w.alertPrice;
-      const thr = 0.03;
       const keyRes = w.ticker + "_resistance";
       const keyBreak = w.ticker + "_breakout";
+      const resNote = w.alertPriceNote ? `\n📝 ${w.alertPriceNote}` : "";
 
-      // Zona: [res-3%, res+3%]
-      if (w.price >= res * (1 - thr) && w.price <= res * (1 + thr) && !alertedTickers.has(keyRes)) {
+      if (w.price >= res && w.price <= res * 1.01 && !alertedTickers.has(keyRes)) {
         alertedTickers.add(keyRes); saveAlertedTickers();
-        const resNote = w.alertPriceNote ? `\n📝 ${w.alertPriceNote}` : "";
-        const msg = `🔴 <b>ZONA RESISTENZA — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza: <b>${res.toFixed(2)}</b>\n📊 Range: ${(res*(1-thr)).toFixed(2)} — ${(res*(1+thr)).toFixed(2)}${resNote}\n👤 ${currentUser.toUpperCase()}`;
+        const msg = `🔴 <b>RESISTENZA RAGGIUNTA — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza: <b>${res.toFixed(2)}</b>${resNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      // Reset quando esce dalla zona
-      if (w.price < res * (1 - thr)) { alertedTickers.delete(keyRes); alertedTickers.delete(keyBreak); saveAlertedTickers(); }
+      if (w.price < res) { alertedTickers.delete(keyRes); alertedTickers.delete(keyBreak); saveAlertedTickers(); }
 
-      // BREAKOUT — prezzo supera res+3%
-      if (w.price > res * (1 + thr) && !alertedTickers.has(keyBreak)) {
+      if (w.price > res * 1.01 && !alertedTickers.has(keyBreak)) {
         alertedTickers.add(keyBreak); saveAlertedTickers();
-        const resNote2 = w.alertPriceNote ? `\n📝 ${w.alertPriceNote}` : "";
-        const msg = `🚀 <b>BREAKOUT — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza superata: <b>${res.toFixed(2)}</b>${resNote2}\n👤 ${currentUser.toUpperCase()}`;
+        const msg = `🚀 <b>BREAKOUT — ${w.ticker}</b>\n\n📈 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Resistenza superata: <b>${res.toFixed(2)}</b>${resNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price < res * (1 + thr)) { alertedTickers.delete(keyBreak); saveAlertedTickers(); }
+      if (w.price <= res) { alertedTickers.delete(keyBreak); saveAlertedTickers(); }
     }
 
-    // ZONA SUPPORTO — range centrato ±3% sul supporto
+    // SUPPORTO — alert quando prezzo raggiunge o scende sotto il livello
     if (w.alertSupport && w.price != null) {
       const sup = w.alertSupport;
-      const thr = 0.03;
       const keySup = w.ticker + "_support";
       const keyBelowSup = w.ticker + "_belowsupport";
+      const supNote = w.alertSupportNote ? `\n📝 ${w.alertSupportNote}` : "";
 
-      // Zona: [sup-3%, sup+3%]
-      if (w.price >= sup * (1 - thr) && w.price <= sup * (1 + thr) && !alertedTickers.has(keySup)) {
+      if (w.price <= sup && w.price >= sup * 0.99 && !alertedTickers.has(keySup)) {
         alertedTickers.add(keySup); saveAlertedTickers();
-        const supNote = w.alertSupportNote ? `\n📝 ${w.alertSupportNote}` : "";
-        const msg = `🟡 <b>ZONA SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${sup.toFixed(2)}</b>\n📊 Range: ${(sup*(1-thr)).toFixed(2)} — ${(sup*(1+thr)).toFixed(2)}${supNote}\n👤 ${currentUser.toUpperCase()}`;
+        const msg = `🟡 <b>SUPPORTO RAGGIUNTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto: <b>${sup.toFixed(2)}</b>${supNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price > sup * (1 + thr)) { alertedTickers.delete(keySup); alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
+      if (w.price > sup) { alertedTickers.delete(keySup); alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
 
-      // SOTTO SUPPORTO — prezzo scende sotto sup-3%
-      if (w.price < sup * (1 - thr) && !alertedTickers.has(keyBelowSup)) {
+      if (w.price < sup * 0.99 && !alertedTickers.has(keyBelowSup)) {
         alertedTickers.add(keyBelowSup); saveAlertedTickers();
-        const supNote2 = w.alertSupportNote ? `\n📝 ${w.alertSupportNote}` : "";
-        const msg = `⚠️ <b>SOTTO SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto violato: <b>${sup.toFixed(2)}</b>${supNote2}\n👤 ${currentUser.toUpperCase()}`;
+        const msg = `⚠️ <b>SOTTO SUPPORTO — ${w.ticker}</b>\n\n📉 <b>${w.name}</b>\n💰 Prezzo: <b>${w.price.toFixed(2)}</b>\n🎯 Supporto violato: <b>${sup.toFixed(2)}</b>${supNote}\n👤 ${currentUser.toUpperCase()}`;
         await Promise.all([
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"fabrizio", message: msg }) }),
           fetch("/.netlify/functions/telegram", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user:"jonathan", message: msg }) })
         ]);
       }
-      if (w.price > sup * (1 - thr)) { alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
+      if (w.price >= sup * 0.99) { alertedTickers.delete(keyBelowSup); saveAlertedTickers(); }
     }
   }
 }
@@ -3935,22 +3926,20 @@ function renderWatchlist() {
       const sup = w.alertSupport; // Supporto (manuale)
       const threshold = 0.02;     // 2%
 
-      const thr = 0.03; // 3% range centrato
-      // Zona Resistenza: [res-3%, res+3%]
-      if (res && p >= res * (1 - thr) && p <= res * (1 + thr)) {
-        alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🔴 ZONA RESISTENZA — Target/Sell</span>`;
+      // Alert esatto: scatta quando il prezzo raggiunge o supera il livello
+      if (res && p >= res) {
+        if (p > res * 1.01) {
+          alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🚀 BREAKOUT — Possibile ingresso</span>`;
+        } else {
+          alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🔴 RESISTENZA RAGGIUNTA — Target/Sell</span>`;
+        }
       }
-      // Breakout: prezzo supera res+3%
-      if (res && p > res * (1 + thr)) {
-        alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;animation:pulse 1.5s infinite;">🚀 BREAKOUT — Possibile ingresso</span>`;
-      }
-      // Zona Supporto: [sup-3%, sup+3%]
-      if (sup && p >= sup * (1 - thr) && p <= sup * (1 + thr)) {
-        alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">🟡 ZONA SUPPORTO — Attendi Pattern</span>`;
-      }
-      // Sotto supporto: prezzo scende sotto sup-3%
-      if (sup && p < sup * (1 - thr)) {
-        alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b44;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">⚠️ SOTTO SUPPORTO</span>`;
+      if (sup && p <= sup) {
+        if (p < sup * 0.99) {
+          alertBadge += `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b44;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">⚠️ SOTTO SUPPORTO</span>`;
+        } else {
+          alertBadge += `<span style="display:inline-block;background:#ffd23f22;color:#ffd23f;border:1px solid #ffd23f;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:3px;animation:pulse 1.5s infinite;">🟡 SUPPORTO RAGGIUNTO — Attendi Pattern</span>`;
+        }
       }
     }
 
