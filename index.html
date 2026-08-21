@@ -1847,8 +1847,7 @@ function openEditPosition(id) {
   document.getElementById("eCurrency").value = p.currency || "USD";
   document.getElementById("eSector").value = p.sector || "Altro";
   document.getElementById("eRegion").value = p.region || "USA";
-  if (document.getElementById("eIsEtf")) document.getElementById("eIsEtf").checked = p.isEtf || false;
-  // Fondamentali
+  if (document.getElementById("eIsEtf")) document.getElementById("eIsEtf").checked = p.isEtf || false;  // Fondamentali
   const fund = fundamentals[p.ticker] || {};
   document.getElementById("eFairValueLabel").value = p.fairValueLabel || fund.fairValueLabel || "";
   document.getElementById("eAnalystUpside").value = p.analystUpside || fund.analystUpside || "";
@@ -1876,7 +1875,7 @@ document.getElementById("btnSaveEdit").addEventListener("click", async () => {
   p.currency = document.getElementById("eCurrency").value;
   p.sector = document.getElementById("eSector").value;
   p.region = document.getElementById("eRegion").value;
-  // Save fondamentali sulla posizione
+  p.isEtf = document.getElementById("eIsEtf")?.checked || false;
   p.fairValueLabel = document.getElementById("eFairValueLabel").value || null;
   p.analystUpside = parseFloat(document.getElementById("eAnalystUpside").value) || null;
   p.pe = parseFloat(document.getElementById("ePE").value) || null;
