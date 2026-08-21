@@ -357,14 +357,27 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 
 <!-- TAB RIBILANCIAMENTO -->
 <div id="tabRibilanciamento" class="tab-content">
+
+  <!-- SELEZIONE METODO -->
   <div class="panel">
-    <div class="panel-title">RIBILANCIAMENTO <button class="btn ghost" id="btnOpenTargets" style="padding:5px 12px;font-size:10px;">⚙ TARGET</button></div>
-    <div id="rebalanceWrap"><div class="empty-state"><p>IMPOSTA I TARGET PER VEDERE I SUGGERIMENTI</p></div></div>
+    <div class="panel-title">⚖️ RIBILANCIAMENTO PORTAFOGLIO</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <button onclick="setRebalMode('manual')" id="rbtnManual" class="btn primary" style="font-size:11px;">📋 A — Target Manuale</button>
+      <button onclick="setRebalMode('regime')" id="rbtnRegime" class="btn ghost" style="font-size:11px;">🌡️ B — Guidato dal Regime</button>
+      <button onclick="setRebalMode('frontier')" id="rbtnFrontier" class="btn ghost" style="font-size:11px;">📊 C — Frontiera Efficiente</button>
+    </div>
+    <div id="rebalModeDesc" style="font-size:11px;color:var(--dim);margin-bottom:12px;padding:8px;background:var(--panel2);border-radius:6px;">
+      Imposta manualmente i % target per ogni posizione. Il sistema calcola quante azioni comprare/vendere.
+    </div>
+    <div id="rebalanceWrap"><div class="empty-state"><p>Seleziona un metodo di ribilanciamento</p></div></div>
   </div>
+
+  <!-- ETF PAC -->
   <div class="panel">
-    <div class="panel-title">PORTAFOGLI MODELLO <span class="sub">clicca per applicare i target</span></div>
-    <div id="modelPortfolios"></div>
+    <div class="panel-title">📊 ETF / PAC <span class="sub">gestione piani di accumulo</span></div>
+    <div id="etfPacWrap"><div class="empty-state"><p>Marca le posizioni come ETF/PAC per vederle qui</p></div></div>
   </div>
+
 </div>
 
 <!-- TAB MERCATI -->
@@ -600,7 +613,11 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         </select>
       </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer;">
+        <input type="checkbox" id="fIsEtf" style="width:16px;height:16px;cursor:pointer;">
+        <span>📊 ETF / PAC</span>
+      </label>
       <button class="btn ghost" id="btnCancelAdd">Annulla</button>
       <button class="btn primary" id="btnSaveAdd">Salva Posizione</button>
     </div>
@@ -725,7 +742,11 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
         </select>
       </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;">
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer;">
+        <input type="checkbox" id="eIsEtf" style="width:16px;height:16px;cursor:pointer;">
+        <span>📊 ETF / PAC</span>
+      </label>
       <button class="btn ghost" id="btnCancelEdit">Annulla</button>
       <button class="btn primary" id="btnSaveEdit">Salva Modifiche</button>
     </div>
@@ -1816,6 +1837,7 @@ function openEditPosition(id) {
   document.getElementById("eCurrency").value = p.currency || "USD";
   document.getElementById("eSector").value = p.sector || "Altro";
   document.getElementById("eRegion").value = p.region || "USA";
+  if (document.getElementById("eIsEtf")) document.getElementById("eIsEtf").checked = p.isEtf || false;
   // Fondamentali
   const fund = fundamentals[p.ticker] || {};
   document.getElementById("eFairValueLabel").value = p.fairValueLabel || fund.fairValueLabel || "";
@@ -2087,6 +2109,7 @@ document.getElementById("btnSaveAdd").addEventListener("click", () => {
   positions.push({
     id: Date.now().toString(),
     ticker, name, qty, buyPrice: price, buyDate: date, currency, sector, region,
+    isEtf: document.getElementById("fIsEtf")?.checked || false,
     currentPrice: null, ath: null, dayHigh: null, dayLow: null, lastFetch: null
   });
   savePositions(positions);
@@ -3947,7 +3970,8 @@ function renderWatchlist() {
     </select>
     <span style="font-size:10px;color:var(--dim);margin-left:auto;">${filtered.length} / ${watchlist.length} titoli</span>
   </div>
-  <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
+  <div style="overflow-x:auto;max-height:580px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
+    <thead style="position:sticky;top:0;z-index:10;background:var(--panel2);">
     <tr style="border-bottom:1px solid var(--line);">
       <th onclick="wlSort('ticker')" style="cursor:pointer;text-align:left;padding:6px 8px;font-size:9px;color:${sortBy==='ticker'?'var(--gold)':'var(--dim)'};letter-spacing:1px;user-select:none;">TICKER${sortBy==='ticker'?(sortDir==='desc'?' ↓':' ↑'):''}</th>
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">PREZZO</th>
@@ -3962,7 +3986,7 @@ function renderWatchlist() {
       <th style="text-align:right;padding:6px 8px;font-size:9px;color:var(--dim);">P/E</th>
       <th style="text-align:left;padding:6px 8px;font-size:9px;color:var(--dim);">NOTE</th>
       <th style="padding:4px;"></th>
-    </tr>`;
+    </tr></thead><tbody>`;
 
   filtered.forEach(w => {
     const sym = w.currency === "EUR" ? "€" : "$";
@@ -4070,7 +4094,7 @@ function renderWatchlist() {
       </td>
     </tr>`;
   });
-  h += "</table></div>";
+  h += "</tbody></table></div>";
   wrap.innerHTML = h;
 }
 
@@ -5899,6 +5923,212 @@ Analizza e rispondi con:
     resultEl.innerHTML = `<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;font-size:12px;line-height:1.7;">${answer.replace(/\n/g,"<br>")}</div>`;
   } catch(e) {
     resultEl.innerHTML = `<div style="color:#ff6b6b;font-size:11px;">Errore: ${e.message}</div>`;
+  }
+};
+
+// ── RIBILANCIAMENTO ───────────────────────────────────────────────────
+let rebalMode = "manual";
+let manualTargets = {}; // ticker -> % target
+
+window.setRebalMode = function(mode) {
+  rebalMode = mode;
+  ["manual","regime","frontier"].forEach(m => {
+    const btn = document.getElementById("rbtn"+m.charAt(0).toUpperCase()+m.slice(1));
+    if (btn) btn.className = m === mode ? "btn primary" : "btn ghost";
+    if (btn) btn.style.fontSize = "11px";
+  });
+  const desc = {
+    manual: "Imposta manualmente i % target per ogni posizione. Il sistema calcola quante azioni comprare/vendere.",
+    regime: "I pesi vengono calcolati automaticamente in base al regime di mercato corrente e al profilo ottimale.",
+    frontier: "Usa i pesi ottimali dalla frontiera efficiente (Max Sharpe). Richiede il calcolo in Stat. Port."
+  };
+  document.getElementById("rebalModeDesc").textContent = desc[mode];
+  renderRebalance();
+};
+
+function renderRebalance() {
+  const wrap = document.getElementById("rebalanceWrap");
+  if (!wrap) return;
+  const totalValue = positions.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+  if (totalValue === 0) { wrap.innerHTML = `<div class="empty-state"><p>Nessuna posizione aperta</p></div>`; return; }
+
+  const stocks = positions.filter(p => !p.isEtf);
+  if (stocks.length === 0) { wrap.innerHTML = `<div class="empty-state"><p>Nessuna azione (non ETF) nel portafoglio</p></div>`; return; }
+
+  // Calculate target weights based on mode
+  let targets = {};
+  if (rebalMode === "manual") {
+    targets = {...manualTargets};
+  } else if (rebalMode === "regime" && portfolioRegimeData) {
+    const d = portfolioRegimeData;
+    const regimeScore = d.score;
+    // Weight by score, adjusted for regime
+    const totalScore = stocks.reduce((s,p) => s+(p.compositeScore||5), 0);
+    stocks.forEach(p => {
+      let w = (p.compositeScore||5) / totalScore * 100;
+      // Boost high-score in bull, reduce in bear
+      if (regimeScore >= 60 && (p.compositeScore||5) >= 7) w *= 1.2;
+      if (regimeScore <= 40 && (p.compositeScore||5) <= 5) w *= 0.7;
+      targets[p.ticker] = w;
+    });
+    // Normalize
+    const tot = Object.values(targets).reduce((a,b)=>a+b,0);
+    Object.keys(targets).forEach(t => targets[t] = targets[t]/tot*100);
+  } else if (rebalMode === "frontier") {
+    // Use stored optimal weights if available
+    if (window._efOptimalWeights) {
+      targets = {...window._efOptimalWeights};
+    } else {
+      wrap.innerHTML = `<div class="empty-state"><p>Prima calcola la Frontiera Efficiente nella tab Stat. Port.</p></div>`;
+      return;
+    }
+  }
+
+  // Render table
+  let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead style="position:sticky;top:0;background:var(--panel2);">
+    <tr>
+      <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">TICKER</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">VAL. ATT.</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">PESO ATT.</th>
+      <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">TARGET %</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">DIFF.</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">AZIONE</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">IMPORTO</th>
+    </tr></thead><tbody>`;
+
+  const stockValue = stocks.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+
+  stocks.forEach(p => {
+    const curPrice = p.currentPrice || p.buyPrice;
+    const curVal = curPrice * p.qty;
+    const curPct = (curVal / stockValue * 100);
+    const tgt = targets[p.ticker] || (100/stocks.length);
+    const diff = tgt - curPct;
+    const targetVal = stockValue * tgt / 100;
+    const diffVal = targetVal - curVal;
+    const qtyChange = Math.round(diffVal / curPrice);
+
+    const col = Math.abs(diff) < 2 ? "var(--dim)" : diff > 0 ? "#00d4b8" : "#ff6b6b";
+    const action = Math.abs(diff) < 2 ? "✅ OK" : diff > 0 ? `🟢 COMPRA ${Math.abs(qtyChange)} az.` : `🔴 VENDI ${Math.abs(qtyChange)} az.`;
+
+    h += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;font-weight:700;">
+        ${p.ticker}
+        <div style="font-size:10px;color:var(--dim);">${p.name||""}</div>
+      </td>
+      <td style="padding:8px;text-align:right;">€${curVal.toFixed(0)}</td>
+      <td style="padding:8px;text-align:right;font-weight:700;">${curPct.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:center;">
+        ${rebalMode === "manual"
+          ? `<input type="number" value="${tgt.toFixed(1)}" step="0.5" min="0" max="100"
+              onchange="manualTargets['${p.ticker}']=parseFloat(this.value)||0;renderRebalance()"
+              style="width:60px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:4px;border-radius:4px;text-align:center;font-size:11px;">`
+          : `<span style="color:${col};font-weight:700;">${tgt.toFixed(1)}%</span>`}
+      </td>
+      <td style="padding:8px;text-align:right;color:${col};font-weight:700;">${diff>=0?"+":""}${diff.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;font-weight:700;color:${col};">${action}</td>
+      <td style="padding:8px;text-align:right;color:${Math.abs(diff)<2?"var(--dim)":diff>0?"#00d4b8":"#ff6b6b"};">${Math.abs(diffVal)<10?"--":(diffVal>0?"+":"-")+"€"+Math.abs(diffVal).toFixed(0)}</td>
+    </tr>`;
+  });
+
+  const totalTarget = Object.values(targets).reduce((a,b)=>a+b,0);
+  h += `<tr style="border-top:2px solid var(--line);background:var(--panel2);font-weight:700;">
+    <td style="padding:8px;">TOTALE</td>
+    <td style="padding:8px;text-align:right;">€${stockValue.toFixed(0)}</td>
+    <td style="padding:8px;text-align:right;">100%</td>
+    <td style="padding:8px;text-align:center;color:${Math.abs(totalTarget-100)<1?"#00d4b8":"#ff6b6b"};">${totalTarget.toFixed(1)}%</td>
+    <td colspan="3"></td>
+  </tr>`;
+  h += "</tbody></table></div>";
+
+  if (rebalMode === "manual") {
+    h += `<div style="margin-top:10px;font-size:10px;color:var(--dim);">💡 Modifica i % target direttamente nella tabella. La somma deve essere 100%.</div>`;
+  } else if (rebalMode === "regime" && portfolioRegimeData) {
+    h += `<div style="margin-top:10px;font-size:10px;color:var(--dim);">🌡️ Pesi calcolati dal regime <strong style="color:${portfolioRegimeData.regimeColor}">${portfolioRegimeData.regime}</strong> — titoli con score alto hanno più peso.</div>`;
+  }
+
+  wrap.innerHTML = h;
+
+  // Render ETF PAC section
+  renderEtfPac();
+}
+
+function renderEtfPac() {
+  const wrap = document.getElementById("etfPacWrap");
+  if (!wrap) return;
+
+  const etfs = positions.filter(p => p.isEtf);
+  if (etfs.length === 0) {
+    wrap.innerHTML = `<div class="empty-state"><p>Nessun ETF/PAC — usa il flag 📊 ETF/PAC nel form di aggiunta</p></div>`;
+    return;
+  }
+
+  const totalValue = positions.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+  const etfValue = etfs.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+  const d = portfolioRegimeData;
+
+  let h = `<div style="font-size:11px;color:var(--dim);margin-bottom:12px;">
+    Valore ETF totale: <strong>€${etfValue.toFixed(0)}</strong> (${(etfValue/totalValue*100).toFixed(1)}% del portafoglio)
+    ${d ? ` | Regime: <strong style="color:${d.regimeColor}">${d.regime}</strong>` : ""}
+  </div>
+  <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <thead style="position:sticky;top:0;background:var(--panel2);">
+    <tr>
+      <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">ETF / PAC</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">VAL. ATT.</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">PESO PORT.</th>
+      <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">P&L %</th>
+      <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">RATA PAC</th>
+      <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">SEGNALE REGIME</th>
+    </tr></thead><tbody>`;
+
+  etfs.forEach(p => {
+    const curPrice = p.currentPrice || p.buyPrice;
+    const curVal = curPrice * p.qty;
+    const curPct = (curVal / totalValue * 100);
+    const pl = (curPrice - p.buyPrice) / p.buyPrice * 100;
+
+    // Regime signal for PAC
+    let signal = "⚪ Mantieni rata", signalCol = "var(--dim)";
+    if (d) {
+      if (d.score >= 70) { signal = "⬇️ Riduci rata (mercato caro)"; signalCol = "#ff9f1c"; }
+      else if (d.score >= 50) { signal = "✅ Mantieni rata"; signalCol = "#00d4b8"; }
+      else if (d.score >= 30) { signal = "⬆️ Aumenta rata (opportunità)"; signalCol = "#80ed99"; }
+      else { signal = "🚀 Aumenta rata (mercato scontato)"; signalCol = "#00d4b8"; }
+    }
+
+    h += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;font-weight:700;">
+        ${p.ticker}
+        <div style="font-size:10px;color:var(--dim);">${p.name||""}</div>
+      </td>
+      <td style="padding:8px;text-align:right;">€${curVal.toFixed(0)}</td>
+      <td style="padding:8px;text-align:right;font-weight:700;">${curPct.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${pl>=0?"+":""}${pl.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:center;">
+        <input type="number" placeholder="€/mese" id="pac_${p.id}"
+          style="width:80px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:4px;border-radius:4px;text-align:center;font-size:11px;">
+      </td>
+      <td style="padding:8px;font-weight:700;color:${signalCol};">${signal}</td>
+    </tr>`;
+  });
+
+  h += "</tbody></table></div>";
+  wrap.innerHTML = h;
+}
+
+// Call renderRebalance when tab is opened
+const origSwitchTab = window.switchTab;
+window.switchTab = function(name) {
+  origSwitchTab(name);
+  if (name === "Ribilanciamento") {
+    // Initialize manual targets if empty
+    if (Object.keys(manualTargets).length === 0) {
+      const stocks = positions.filter(p => !p.isEtf);
+      stocks.forEach(p => { manualTargets[p.ticker] = parseFloat((100/stocks.length).toFixed(1)); });
+    }
+    renderRebalance();
   }
 };
 
