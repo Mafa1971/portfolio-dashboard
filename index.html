@@ -212,6 +212,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <button class="btn" id="btnAddPosition">+ NUOVA POSIZIONE</button>
     <button class="btn" id="btnBackupExport">💾 BACKUP</button>
     <button class="btn" id="btnBackupImport">📥 RIPRISTINA</button>
+    <button class="btn" onclick="document.getElementById('modalHelpOverlay').classList.add('show')" style="background:#ffd23f22;border-color:#ffd23f44;color:#ffd23f;">❓ GUIDA</button>
     <input type="file" id="backupFileInput" accept=".json" style="display:none;">
     <button class="btn ghost" id="btnLogout" style="padding:7px 14px;font-size:10px;letter-spacing:1px;">ESCI</button>
     <button class="btn primary" id="btnRefresh">↻ AGGIORNA PREZZI</button>
@@ -1064,6 +1065,132 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div>
 
 </div><!-- end appContent -->
+
+<!-- MODAL GUIDA -->
+<div class="modal-overlay" id="modalHelpOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal" style="max-width:660px;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="font-size:17px;">❓ Guida & Leggenda</h3>
+      <button onclick="document.getElementById('modalHelpOverlay').classList.remove('show')"
+        style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:20px;">✕</button>
+    </div>
+
+    <!-- SCORE -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">⭐ SCORE COMPOSITO (0-10)</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        Valutazione sintetica del titolo su tre dimensioni:<br>
+        • <strong style="color:var(--txt);">40% Tecnico</strong> — SMA21/50/200, Golden Cross, RSI, MACD, Ichimoku, Volume<br>
+        • <strong style="color:var(--txt);">35% Fondamentale</strong> — Fair Value, Rialzo Analisti, P/E, Cash Flow, Piotroski, D/E, ROIC, Crescita Fatturato<br>
+        • <strong style="color:var(--txt);">25% Rischio</strong> — Sortino, Sharpe, Max Drawdown, Volatilità
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <span style="background:#00d4b822;color:#00d4b8;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">8-10 Eccellente</span>
+        <span style="background:#80ed9922;color:#80ed99;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">6-8 Buono</span>
+        <span style="background:#ffd23f22;color:#ffd23f;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">4-6 Neutro</span>
+        <span style="background:#ff9f1c22;color:#ff9f1c;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">2-4 Debole</span>
+        <span style="background:#ff6b6b22;color:#ff6b6b;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;">0-2 Critico</span>
+      </div>
+    </div>
+
+    <!-- SENTIMENT -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">📊 SENTIMENT / SEGNALE</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        Indica la fase tecnica del titolo basata su medie mobili, momentum e volume:<br>
+        • <strong style="color:#00d4b8;">🚀 BULL</strong> — Sopra tutte le SMA, RSI alto, MACD positivo, volume crescente<br>
+        • <strong style="color:#80ed99;">🟢 Risk-On</strong> — Trend positivo, sopra SMA50 e SMA200, momentum favorevole<br>
+        • <strong style="color:#ffd23f;">🟡 Neutro</strong> — Segnali misti, laterale, consolidamento<br>
+        • <strong style="color:#ff9f1c;">🔴 Risk-Off</strong> — Sotto le medie principali, segnali negativi<br>
+        • <strong style="color:#ff6b6b;">🐻 Bear</strong> — Downtrend confermato, tutti gli indicatori negativi
+      </div>
+    </div>
+
+    <!-- REGIME -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">🌡️ REGIME DI MERCATO (0-100)</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        Indice composito che misura la salute generale del mercato:<br>
+        • <strong style="color:#00d4b8;">🚀 BULL (80-100)</strong> — Mercato fortemente rialzista → Aggressivo/Growth<br>
+        • <strong style="color:#80ed99;">🟢 RISK-ON (60-80)</strong> — Trend positivo → Growth/Momentum<br>
+        • <strong style="color:#ffd23f;">🟡 NEUTRO (40-60)</strong> — Laterale → Bilanciato/Quality<br>
+        • <strong style="color:#ff9f1c;">🔴 RISK-OFF (20-40)</strong> — Debolezza → Conservativo/Dividend<br>
+        • <strong style="color:#ff6b6b;">🐻 BEAR (0-20)</strong> — Ribassista → All Weather/Cash<br><br>
+        Calcolato da: SP500 vs SMA200, Score medio portafoglio, RSI medio, Stress posizioni, Volatilità SP500, Score watchlist.
+      </div>
+    </div>
+
+    <!-- RSI -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">📈 RSI — Relative Strength Index</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        Misura la velocità e l'ampiezza dei movimenti di prezzo (0-100):<br>
+        • <strong style="color:#ff6b6b;">&gt;70</strong> — Ipercomprato (possibile correzione)<br>
+        • <strong style="color:#00d4b8;">50-70</strong> — Zona rialzista (momentum positivo)<br>
+        • <strong style="color:#ffd23f;">30-50</strong> — Zona ribassista o laterale<br>
+        • <strong style="color:#00d4b8;">&lt;30</strong> — Ipervenduto (possibile rimbalzo)
+      </div>
+    </div>
+
+    <!-- DPO -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">📉 DPO — Detrended Price Oscillator</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        Rimuove il trend di lungo periodo per isolare i cicli di prezzo:<br>
+        • <strong style="color:#00d4b8;">Forte</strong> — Ciclo positivo, prezzo sopra la media ciclica<br>
+        • <strong style="color:#ffd23f;">In Calo</strong> — Il ciclo sta perdendo forza<br>
+        • <strong style="color:#ff6b6b;">Negativo</strong> — Ciclo negativo, prezzo sotto la media ciclica
+      </div>
+    </div>
+
+    <!-- FAIR VALUE -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">🎯 FAIR VALUE & CASH FLOW</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        <strong>Fair Value</strong> — Valutazione del titolo rispetto al suo valore intrinseco:<br>
+        Affare → Sottovalutato → Mod. Sottovalutato → Equo → Mod. Sopravvalutato → Sopravvalutato<br><br>
+        <strong>Cash Flow</strong> — Qualità della generazione di cassa:<br>
+        Eccellente → Ottima → Buona → Nella media → Debole
+      </div>
+    </div>
+
+    <!-- INDICATORI RISCHIO -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">⚠️ INDICATORI DI RISCHIO</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        • <strong style="color:var(--txt);">Sharpe Ratio</strong> — Rendimento extra / Volatilità totale. &gt;1 ottimo, 0.5-1 buono<br>
+        • <strong style="color:var(--txt);">Sortino Ratio</strong> — Come Sharpe ma considera solo la volatilità negativa. Più favorevole ai portafogli long-only<br>
+        • <strong style="color:var(--txt);">Max Drawdown</strong> — Massima perdita dal picco al minimo nel periodo analizzato<br>
+        • <strong style="color:var(--txt);">Beta</strong> — Sensibilità vs SP500. &lt;1 meno volatile, &gt;1 più volatile, 0 non correlato<br>
+        • <strong style="color:var(--txt);">Volatilità annua</strong> — Deviazione standard annualizzata dei rendimenti. &lt;15% bassa, 15-25% media, &gt;25% alta
+      </div>
+    </div>
+
+    <!-- ALERT S/R -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">🔔 ALERT SUPPORTO / RESISTENZA</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        • <strong style="color:#ff6b6b;">🔴 Resistenza</strong> — Livello di prezzo dove il titolo ha storicamente faticato a salire. Alert quando prezzo ≥ livello<br>
+        • <strong style="color:#ffd23f;">🟡 Supporto</strong> — Livello dove il titolo ha trovato acquirenti. Alert quando prezzo ≤ livello<br>
+        • <strong style="color:#ffd23f;">🚀 Breakout</strong> — Il prezzo ha superato la resistenza di oltre +1% (segnale rialzista)<br>
+        • <strong style="color:#ff6b6b;">⚠️ Sotto Supporto</strong> — Il prezzo è sceso sotto il supporto di oltre -1% (segnale ribassista)<br><br>
+        Gli alert vengono inviati via <strong>Telegram</strong> e non si ripetono finché il prezzo non torna nella zona normale.
+      </div>
+    </div>
+
+    <!-- RIBILANCIAMENTO -->
+    <div style="margin-bottom:8px;">
+      <div style="font-size:11px;font-weight:700;color:#ffd23f;letter-spacing:1px;margin-bottom:8px;">⚖️ RIBILANCIAMENTO</div>
+      <div style="font-size:11px;color:var(--dim);line-height:1.7;">
+        • <strong style="color:var(--txt);">A — Target Manuale</strong> — Imposti i % desiderati. Il sistema calcola quante azioni comprare/vendere<br>
+        • <strong style="color:var(--txt);">B — Regime</strong> — Pesi automatici basati sul regime di mercato e score dei titoli<br>
+        • <strong style="color:var(--txt);">C — Frontiera Efficiente</strong> — Pesi ottimali Max Sharpe dal Monte Carlo (calcola prima in Stat. Port.)<br>
+        • <strong style="color:var(--txt);">ETF/PAC</strong> — Sezione dedicata ai piani di accumulo con segnale regime per la rata mensile
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <script>
 
