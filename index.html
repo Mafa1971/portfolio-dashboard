@@ -220,6 +220,15 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 
 <!-- TAB CONTENT -->
 <div id="tabPortfolio" class="tab-content active">
+
+  <!-- REGIME DI MERCATO -->
+  <div class="panel" style="border:1px solid #ffd23f44;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="panel-title" style="margin:0;">🌡️ REGIME DI MERCATO</div>
+      <button onclick="calcPortfolioRegime()" style="background:none;border:1px solid var(--line);color:var(--dim);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;">↺ Aggiorna</button>
+    </div>
+    <div id="portfolioRegimePanel"><div style="font-size:11px;color:var(--dim);text-align:center;padding:10px;">⏳ Calcolo regime...</div></div>
+  </div>
   <!-- HERO -->
   <div class="hero-card">
     <div class="hero-row">
@@ -467,6 +476,10 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <button class="tab-btn" onclick="switchTab('Mercati')" id="tabBtnMercati">
     <span class="tab-icon">🌍</span>
     <span class="tab-label">Mercati</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('Suggerimenti');renderSuggerimenti()" id="tabBtnSuggerimenti">
+    <span class="tab-icon">💡</span>
+    <span class="tab-label">Suggerimenti</span>
   </button>
   <button class="tab-btn" onclick="switchTab('Size')" id="tabBtnSize">
     <span class="tab-icon">⚖️</span>
@@ -2948,15 +2961,21 @@ function renderTable() {
     return `<th onclick="posSort('${key}')" style="cursor:pointer;text-align:left;padding:6px 8px;font-size:9px;color:${active?'var(--gold)':'var(--dim)'};letter-spacing:1px;user-select:none;">${label}${arrow}</th>`;
   };
 
-  let h = `<table><tr>
+  let h = `<div style="overflow-x:auto;max-height:520px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;z-index:10;background:var(--panel2);"><tr>
     ${sortTh("Ticker","ticker")}
-    <th>Nome</th><th>Qty</th><th>P.Medio</th><th>Investito</th><th>Attuale</th><th>Var%</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;white-space:nowrap;">NOME</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">QTY</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">P.MEDIO</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">INVESTITO</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">ATTUALE</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">VAR%</th>
     ${sortTh("Val.Att.","value")}
     ${sortTh("P&L %","pl")}
-    <th>P&L Val.</th><th>Peso</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">P&L VAL.</th>
+    <th style="padding:6px 8px;font-size:9px;color:var(--dim);letter-spacing:1px;">PESO</th>
     ${sortTh("Score","score")}
     <th></th>
-  </tr>`;
+  </tr></thead><tbody>`;
 
   const stats = calcPortfolioStats();
 
@@ -4137,6 +4156,99 @@ function renderRebalance() {
 }
 
 // ── RENDER ALL ─────────────────────────────────────────────────────────
+
+// ── REGIME DI MERCATO (DASHBOARD) ────────────────────────────────────
+let portfolioRegimeData = null;
+
+async function calcPortfolioRegime() {
+  try {
+    const spxData = await fetchSectorData("^GSPC", "1y", "1d");
+    const spxCloses = spxData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v=>v!=null) || [];
+    const spxSMA200 = spxCloses.length >= 200 ? spxCloses.slice(-200).reduce((a,b)=>a+b,0)/200 : null;
+    const spxCurrent = spxCloses[spxCloses.length-1];
+    const spxTrend = spxSMA200 ? (spxCurrent > spxSMA200 ? 1 : -1) : 0;
+    const spxStrength = spxSMA200 ? ((spxCurrent - spxSMA200) / spxSMA200 * 100) : 0;
+
+    const posScores = positions.map(p => p.compositeScore).filter(s => s != null);
+    const wlScores = watchlist.map(w => w.compositeScore).filter(s => s != null);
+    const avgPosScore = posScores.length ? posScores.reduce((a,b)=>a+b,0)/posScores.length : 5;
+    const avgWlScore = wlScores.length ? wlScores.reduce((a,b)=>a+b,0)/wlScores.length : 5;
+    const posRSI = positions.map(p => p.rsi).filter(r => r != null);
+    const avgRSI = posRSI.length ? posRSI.reduce((a,b)=>a+b,0)/posRSI.length : 50;
+    const posInLoss = positions.filter(p => p.currentPrice && p.currentPrice < p.buyPrice).length;
+    const stressRatio = positions.length > 0 ? posInLoss / positions.length : 0;
+
+    let spxVol = 20;
+    if (spxCloses.length >= 21) {
+      const returns = spxCloses.slice(-21).slice(1).map((c,i) => (c - spxCloses.slice(-21)[i]) / spxCloses.slice(-21)[i]);
+      const avg = returns.reduce((a,b)=>a+b,0)/returns.length;
+      spxVol = Math.sqrt(returns.reduce((a,r)=>a+Math.pow(r-avg,2),0)/returns.length) * Math.sqrt(252) * 100;
+    }
+
+    let regimeScore = 50;
+    regimeScore += spxTrend * Math.min(20, Math.abs(spxStrength) * 2);
+    regimeScore += (avgPosScore - 5) * 3;
+    if (avgRSI > 60) regimeScore += 10; else if (avgRSI > 50) regimeScore += 5;
+    else if (avgRSI < 40) regimeScore -= 10; else if (avgRSI < 50) regimeScore -= 5;
+    regimeScore -= stressRatio * 15;
+    if (spxVol > 30) regimeScore -= 15; else if (spxVol > 20) regimeScore -= 5; else if (spxVol < 12) regimeScore += 10;
+    regimeScore += (avgWlScore - 5) * 2;
+    regimeScore = Math.max(0, Math.min(100, regimeScore));
+
+    let regime, regimeColor, regimeEmoji, profileSuggested, profileDesc;
+    if (regimeScore >= 80) { regime="BULL"; regimeColor="#00d4b8"; regimeEmoji="🚀"; profileSuggested="Aggressivo / Growth"; profileDesc="Mercato fortemente rialzista — massimizza l'esposizione"; }
+    else if (regimeScore >= 60) { regime="RISK-ON"; regimeColor="#80ed99"; regimeEmoji="🟢"; profileSuggested="Growth / Momentum"; profileDesc="Trend positivo — favorisci titoli growth e momentum"; }
+    else if (regimeScore >= 40) { regime="NEUTRO"; regimeColor="#ffd23f"; regimeEmoji="🟡"; profileSuggested="Bilanciato / Quality"; profileDesc="Mercato laterale — privilegia qualità e diversificazione"; }
+    else if (regimeScore >= 20) { regime="RISK-OFF"; regimeColor="#ff9f1c"; regimeEmoji="🔴"; profileSuggested="Conservativo / Dividend"; profileDesc="Segnali di debolezza — riduci rischio, favorisci difensivi"; }
+    else { regime="BEAR"; regimeColor="#ff6b6b"; regimeEmoji="🐻"; profileSuggested="All Weather / Cash"; profileDesc="Mercato ribassista — protezione capitale prioritaria"; }
+
+    portfolioRegimeData = { score:Math.round(regimeScore), regime, regimeColor, regimeEmoji, profileSuggested, profileDesc,
+      indicators:{ spxTrend:spxTrend>0?"Sopra SMA200 ✅":"Sotto SMA200 ❌", spxStrength:spxStrength.toFixed(1)+"%",
+        avgPosScore:avgPosScore.toFixed(1), avgWlScore:avgWlScore.toFixed(1), avgRSI:avgRSI.toFixed(0),
+        stressRatio:(stressRatio*100).toFixed(0)+"%", spxVol:spxVol.toFixed(1)+"%" } };
+
+    const wrap = document.getElementById("portfolioRegimePanel");
+    if (!wrap) return;
+    const d = portfolioRegimeData;
+    wrap.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:26px;">${d.regimeEmoji}</span>
+          <div><div style="font-size:16px;font-weight:800;color:${d.regimeColor};">${d.regime}</div>
+          <div style="font-size:11px;color:var(--dim);">${d.profileDesc}</div></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">STRATEGIA SUGGERITA</div>
+          <div style="font-size:13px;font-weight:700;color:${d.regimeColor};">${d.profileSuggested}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:4px;">
+          <span>🐻 BEAR</span><span>🔴 RISK-OFF</span><span>🟡 NEUTRO</span><span>🟢 RISK-ON</span><span>🚀 BULL</span>
+        </div>
+        <div style="background:#1a2236;border-radius:8px;height:12px;position:relative;overflow:hidden;">
+          <div style="position:absolute;left:0;top:0;height:100%;width:${d.score}%;background:linear-gradient(90deg,#ff6b6b,#ff9f1c,#ffd23f,#80ed99,#00d4b8);border-radius:8px;transition:width 0.5s;"></div>
+          <div style="position:absolute;top:0;left:${d.score}%;transform:translateX(-50%);width:3px;height:100%;background:#fff;border-radius:2px;"></div>
+        </div>
+        <div style="text-align:right;font-size:10px;color:${d.regimeColor};font-weight:700;margin-top:2px;">${d.score}/100</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
+        ${[
+          {l:"SP500",v:d.indicators.spxTrend,s:d.indicators.spxStrength},
+          {l:"Score Port.",v:d.indicators.avgPosScore+"/10",s:"WL: "+d.indicators.avgWlScore+"/10"},
+          {l:"RSI Medio",v:d.indicators.avgRSI,s:""},
+          {l:"Stress",v:d.indicators.stressRatio,s:"pos. in perdita"},
+          {l:"Vol SP500",v:d.indicators.spxVol,s:"annualizzata"}
+        ].map(x=>`<div style="background:var(--panel);border-radius:8px;padding:8px;">
+          <div style="font-size:9px;color:var(--dim);">${x.l}</div>
+          <div style="font-size:11px;font-weight:700;">${x.v}</div>
+          ${x.s?`<div style="font-size:9px;color:var(--dim);">${x.s}</div>`:""}
+        </div>`).join("")}
+      </div>`;
+  } catch(e) { console.error("Portfolio regime error:", e); }
+}
+window.calcPortfolioRegime = calcPortfolioRegime;
+
 function renderAll() {
   renderHero();
   renderTable();
@@ -5483,9 +5595,284 @@ window.calcSize = function() {
   document.getElementById("szResults").style.display = "block";
 };
 
+// ── SUGGERIMENTI TAB ─────────────────────────────────────────────────
+window.renderSuggerimenti = function() {
+  const regimeInfoEl = document.getElementById("suggestRegimeInfo");
+  const suggestWrap = document.getElementById("suggestWrap");
+
+  if (!portfolioRegimeData) {
+    if (regimeInfoEl) regimeInfoEl.style.display = "block";
+    if (suggestWrap) suggestWrap.style.display = "none";
+    calcPortfolioRegime().then(() => renderSuggerimenti());
+    return;
+  }
+
+  if (regimeInfoEl) regimeInfoEl.style.display = "none";
+  if (suggestWrap) suggestWrap.style.display = "block";
+
+  const d = portfolioRegimeData;
+  const regimeScore = d.score;
+  const currentTickers = positions.map(p => p.ticker);
+  const totalValue = positions.reduce((s,p) => s+(p.currentPrice||p.buyPrice)*p.qty, 0);
+
+  // Score thresholds based on regime
+  const buyMinScore = regimeScore >= 80 ? 5 : regimeScore >= 60 ? 6 : regimeScore >= 40 ? 6.5 : 7;
+  const allScores = positions.map(p => p.compositeScore||0).sort((a,b) => a-b);
+  const relThreshold = allScores.length >= 3 ? allScores[Math.floor(allScores.length * 0.3)] : 4;
+  const absThreshold = regimeScore >= 60 ? 4.5 : regimeScore >= 40 ? 5 : 5.5;
+  const sellScoreThreshold = Math.max(absThreshold, relThreshold);
+
+  // BUY — watchlist not in portfolio, score >= buyMinScore
+  const toBuy = watchlist
+    .filter(w => !currentTickers.includes(w.ticker) && (w.compositeScore||0) >= buyMinScore)
+    .sort((a,b) => (b.compositeScore||0) - (a.compositeScore||0))
+    .slice(0, 10);
+
+  // SELL — open positions with score <= sellScoreThreshold
+  const toSell = positions.filter(p => (p.compositeScore||5) <= sellScoreThreshold);
+  const toKeep = positions.filter(p => !toSell.find(s => s.ticker === p.ticker))
+    .sort((a,b) => (b.compositeScore||0) - (a.compositeScore||0));
+
+  // Regime banner
+  const banner = `<div style="background:${d.regimeColor}11;border:1px solid ${d.regimeColor}44;border-radius:10px;padding:12px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:24px;">${d.regimeEmoji}</span>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:${d.regimeColor};">${d.regime}</div>
+          <div style="font-size:10px;color:var(--dim);">${d.profileDesc}</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:9px;color:var(--dim);">STRATEGIA SUGGERITA</div>
+        <div style="font-size:12px;font-weight:700;color:${d.regimeColor};">${d.profileSuggested}</div>
+      </div>
+    </div>
+    <div style="background:#1a2236;border-radius:6px;height:10px;position:relative;overflow:hidden;margin-bottom:4px;">
+      <div style="position:absolute;left:0;top:0;height:100%;width:${d.score}%;background:linear-gradient(90deg,#ff6b6b,#ff9f1c,#ffd23f,#80ed99,#00d4b8);border-radius:6px;"></div>
+      <div style="position:absolute;top:0;left:${d.score}%;transform:translateX(-50%);width:3px;height:100%;background:#fff;border-radius:2px;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-bottom:6px;">
+      <span>🐻 BEAR</span><span>🔴 RISK-OFF</span><span>🟡 NEUTRO</span><span>🟢 RISK-ON</span><span>🚀 BULL</span>
+    </div>
+    <div style="font-size:10px;color:var(--dim);">Score min acquisto: <strong style="color:${d.regimeColor};">${buyMinScore}</strong> | Score max tenuta: <strong style="color:#ff9f1c;">${sellScoreThreshold.toFixed(1)}</strong></div>
+  </div>`;
+
+  // ── BUY card ──────────────────────────────────────────────────────
+  const buyWrap = document.getElementById("suggestBuyWrap");
+  if (buyWrap) {
+    if (toBuy.length === 0) {
+      buyWrap.innerHTML = banner + `<div class="empty-state"><p>Nessun titolo in watchlist con score ≥ ${buyMinScore} nel regime attuale</p></div>`;
+    } else {
+      let h = banner + `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--panel2);">
+        <tr>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">TICKER</th>
+          <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">SCORE</th>
+          <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">RSI</th>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">FAIR VALUE</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">RIALZO</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">PREZZO</th>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">NOTE S/R</th>
+          <th style="padding:8px;"></th>
+        </tr></thead><tbody>`;
+
+      toBuy.forEach(w => {
+        const sc = w.compositeScore;
+        const scCol = sc>=7?"#00d4b8":sc>=5?"#80ed99":"#ffd23f";
+        const sym = w.currency==="EUR"?"€":"$";
+        const resNote = w.alertPrice ? `🔴 R: ${sym}${w.alertPrice}${w.alertPriceNote?" — "+w.alertPriceNote:""}` : "";
+        const supNote = w.alertSupport ? `🟡 S: ${sym}${w.alertSupport}${w.alertSupportNote?" — "+w.alertSupportNote:""}` : "";
+        h += `<tr style="border-top:1px solid #1a2030;">
+          <td style="padding:8px;font-weight:700;">
+            <a href="${getPortfolioTVUrl(w.ticker)}" target="_blank" style="color:#4fa3ff;text-decoration:none;">${w.ticker} 📈</a>
+            <div style="font-size:10px;color:var(--dim);">${w.name||""}</div>
+          </td>
+          <td style="padding:8px;text-align:center;font-weight:800;color:${scCol};">${sc?.toFixed(1)||"--"}</td>
+          <td style="padding:8px;text-align:center;color:${(w.rsi||50)>70?"#ff7700":(w.rsi||50)<30?"#00d4b8":"var(--dim)"};">${w.rsi?.toFixed(0)||"--"}</td>
+          <td style="padding:8px;font-size:10px;color:${w.fairValueLabel==="Sottovalutato"?"#00d4b8":w.fairValueLabel==="Sopravvalutato"?"#ff6b6b":"var(--dim)"};">${w.fairValueLabel||"--"}</td>
+          <td style="padding:8px;text-align:right;color:${(w.analystUpside||0)>0?"#00d4b8":"#ff6b6b"};">${w.analystUpside!=null?(w.analystUpside>0?"+":"")+w.analystUpside+"%":"--"}</td>
+          <td style="padding:8px;text-align:right;">${w.price?sym+w.price.toFixed(2):"--"}</td>
+          <td style="padding:8px;font-size:10px;">
+            ${resNote?`<div style="color:#ff6b6b80;">${resNote}</div>`:""}
+            ${supNote?`<div style="color:#ffd23f80;">${supNote}</div>`:""}
+          </td>
+          <td style="padding:8px;">
+            <button onclick="openAIAnalysis('${w.ticker}')" style="background:none;border:none;color:#00d4b8;cursor:pointer;font-size:13px;" title="Analisi AI">🤖</button>
+          </td>
+        </tr>`;
+      });
+      h += "</tbody></table></div>";
+
+      // AI Analysis button for full list
+      h += `<div style="margin-top:14px;">
+        <button onclick="analyzeSuggestionsWithAI()" class="btn primary" style="width:100%;padding:10px;font-size:12px;">
+          🤖 Analisi AI — Identifica le migliori opportunità
+        </button>
+        <div id="suggestAIResult" style="margin-top:10px;"></div>
+      </div>`;
+
+      buyWrap.innerHTML = h;
+    }
+  }
+
+  // ── SELL card ─────────────────────────────────────────────────────
+  const sellWrap = document.getElementById("suggestSellWrap");
+  if (sellWrap) {
+    if (toSell.length === 0) {
+      sellWrap.innerHTML = `<div class="empty-state"><p>Nessuna posizione con score critico nel regime attuale (soglia: ${sellScoreThreshold.toFixed(1)})</p></div>`;
+    } else {
+      let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--panel2);">
+        <tr>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">TICKER</th>
+          <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">SCORE</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">P&L %</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">P&L €</th>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">MOTIVO</th>
+          <th style="padding:8px;"></th>
+        </tr></thead><tbody>`;
+
+      toSell.forEach(p => {
+        const sc = p.compositeScore;
+        const pl = ((p.currentPrice||p.buyPrice) - p.buyPrice) * p.qty;
+        const plPct = ((p.currentPrice||p.buyPrice) - p.buyPrice) / p.buyPrice * 100;
+        const motivo = sc < 3 ? "Score molto basso — segnale forte" :
+                       sc < 4 ? "Score basso per regime " + d.regime :
+                       "Tra i più deboli del portafoglio (soglia: " + sellScoreThreshold.toFixed(1) + ")";
+        h += `<tr style="border-top:1px solid #1a2030;background:#ff6b6b08;">
+          <td style="padding:8px;font-weight:700;">
+            <a href="${getPortfolioTVUrl(p.ticker)}" target="_blank" style="color:#4fa3ff;text-decoration:none;">${p.ticker} 📈</a>
+            <div style="font-size:10px;color:var(--dim);">${p.name||""}</div>
+          </td>
+          <td style="padding:8px;text-align:center;font-weight:800;color:#ff6b6b;">${sc?.toFixed(1)||"--"}</td>
+          <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${plPct>=0?"+":""}${plPct.toFixed(1)}%</td>
+          <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${pl>=0?"+€":"-€"}${Math.abs(pl).toFixed(0)}</td>
+          <td style="padding:8px;font-size:10px;color:#ff9f1c;">⚠️ ${motivo}</td>
+          <td style="padding:8px;">
+            <button onclick="openAIAnalysis('${p.ticker}')" style="background:none;border:none;color:#00d4b8;cursor:pointer;font-size:13px;" title="Analisi AI">🤖</button>
+          </td>
+        </tr>`;
+      });
+      h += "</tbody></table></div>";
+      sellWrap.innerHTML = h;
+    }
+  }
+
+  // ── KEEP card ─────────────────────────────────────────────────────
+  const keepWrap = document.getElementById("suggestKeepWrap");
+  if (keepWrap) {
+    if (toKeep.length === 0) {
+      keepWrap.innerHTML = `<div class="empty-state"><p>Nessuna posizione da mantenere</p></div>`;
+    } else {
+      let h = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--panel2);">
+        <tr>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">TICKER</th>
+          <th style="padding:8px;text-align:center;font-size:9px;color:var(--dim);">SCORE</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">P&L %</th>
+          <th style="padding:8px;text-align:right;font-size:9px;color:var(--dim);">P&L €</th>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">FAIR VALUE</th>
+          <th style="padding:8px;text-align:left;font-size:9px;color:var(--dim);">SETTORE</th>
+          <th style="padding:8px;"></th>
+        </tr></thead><tbody>`;
+
+      toKeep.forEach(p => {
+        const sc = p.compositeScore;
+        const scCol = sc>=7?"#00d4b8":sc>=5?"#80ed99":"#ffd23f";
+        const pl = ((p.currentPrice||p.buyPrice) - p.buyPrice) * p.qty;
+        const plPct = ((p.currentPrice||p.buyPrice) - p.buyPrice) / p.buyPrice * 100;
+        h += `<tr style="border-top:1px solid #1a2030;">
+          <td style="padding:8px;font-weight:700;">
+            <a href="${getPortfolioTVUrl(p.ticker)}" target="_blank" style="color:#4fa3ff;text-decoration:none;">${p.ticker} 📈</a>
+            <div style="font-size:10px;color:var(--dim);">${p.name||""}</div>
+          </td>
+          <td style="padding:8px;text-align:center;font-weight:800;color:${scCol};">${sc?.toFixed(1)||"--"}</td>
+          <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${plPct>=0?"+":""}${plPct.toFixed(1)}%</td>
+          <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${pl>=0?"+€":"-€"}${Math.abs(pl).toFixed(0)}</td>
+          <td style="padding:8px;font-size:10px;color:${p.fairValueLabel==="Sottovalutato"?"#00d4b8":p.fairValueLabel==="Sopravvalutato"?"#ff6b6b":"var(--dim)"};">${p.fairValueLabel||"--"}</td>
+          <td style="padding:8px;font-size:10px;color:var(--dim);">${p.sector||""}</td>
+          <td style="padding:8px;">
+            <button onclick="openAIAnalysis('${p.ticker}')" style="background:none;border:none;color:#00d4b8;cursor:pointer;font-size:13px;" title="Analisi AI">🤖</button>
+          </td>
+        </tr>`;
+      });
+      h += "</tbody></table></div>";
+      keepWrap.innerHTML = h;
+    }
+  }
+};
+
+// ── AI ANALISI LISTA SUGGERIMENTI ─────────────────────────────────────
+window.analyzeSuggestionsWithAI = async function() {
+  const resultEl = document.getElementById("suggestAIResult");
+  if (!resultEl) return;
+
+  const d = portfolioRegimeData;
+  const currentTickers = positions.map(p => p.ticker);
+  const buyMinScore = d.score >= 80 ? 5 : d.score >= 60 ? 6 : d.score >= 40 ? 6.5 : 7;
+
+  const toBuy = watchlist
+    .filter(w => !currentTickers.includes(w.ticker) && (w.compositeScore||0) >= buyMinScore)
+    .sort((a,b) => (b.compositeScore||0) - (a.compositeScore||0))
+    .slice(0, 10);
+
+  if (toBuy.length === 0) { resultEl.innerHTML = `<div style="color:var(--dim);font-size:11px;">Nessun titolo da analizzare.</div>`; return; }
+
+  resultEl.innerHTML = `<div style="color:var(--dim);font-size:11px;padding:10px;text-align:center;">🤖 Analisi AI in corso...</div>`;
+
+  const prompt = `Sei un esperto analista finanziario. Rispondi in italiano, max 300 parole. Usa emoji.
+
+Regime di mercato attuale: ${d.regime} (${d.score}/100) — ${d.profileDesc}
+
+Titoli candidati all'acquisto (dalla watchlist, ordinati per score):
+${toBuy.map(w => `- ${w.ticker} (${w.name}): Score ${w.compositeScore?.toFixed(1)||"N/D"}, RSI ${w.rsi?.toFixed(0)||"N/D"}, Fair Value: ${w.fairValueLabel||"N/D"}, Rialzo analisti: ${w.analystUpside!=null?w.analystUpside+"%":"N/D"}, Settore: ${w.sector||"N/D"}`).join("\n")}
+
+Analizza questi titoli nel contesto del regime ${d.regime} e identifica:
+1. I 3 migliori da acquistare ora con motivazione tecnica e fondamentale
+2. Quali evitare e perché
+3. Strategia di ingresso suggerita (tutto in una volta o graduale?)`;
+
+  try {
+    const res = await fetch("/.netlify/functions/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
+    });
+    const data = await res.json();
+    const answer = data.text || "Errore nella risposta.";
+    resultEl.innerHTML = `<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;font-size:12px;line-height:1.7;">${answer.replace(/\n/g,"<br>")}</div>`;
+  } catch(e) {
+    resultEl.innerHTML = `<div style="color:#ff6b6b;font-size:11px;">Errore: ${e.message}</div>`;
+  }
+};
+
 </script>
 </body>
 </html>
+
+<!-- TAB SUGGERIMENTI -->
+<div id="tabSuggerimenti" class="tab-content">
+  <div class="panel" id="suggestRegimeInfo">
+    <div style="font-size:11px;color:var(--dim);text-align:center;padding:10px;">
+      Vai alla tab Portfolio per calcolare il regime di mercato prima.
+    </div>
+  </div>
+  <div id="suggestWrap" style="display:none;">
+    <div class="panel" id="suggestBuyPanel">
+      <div class="panel-title">🟢 DA ACQUISTARE</div>
+      <div id="suggestBuyWrap"></div>
+    </div>
+    <div class="panel" id="suggestSellPanel">
+      <div class="panel-title">🔴 DA CHIUDERE</div>
+      <div id="suggestSellWrap"></div>
+    </div>
+    <div class="panel" id="suggestKeepPanel">
+      <div class="panel-title">🟡 MANTENERE</div>
+      <div id="suggestKeepWrap"></div>
+    </div>
+  </div>
+</div>
 
 <!-- TAB CALCOLO SIZE -->
 <div id="tabSize" class="tab-content">
