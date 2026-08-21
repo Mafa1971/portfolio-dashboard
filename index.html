@@ -1612,13 +1612,21 @@ function switchTab(name) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("tab" + name).classList.add("active");
   document.getElementById("tabBtn" + name).classList.add("active");
-  // Redraw charts when switching to portfolio tab
   if (name === "Portfolio") {
     setTimeout(() => { renderCharts(); renderCapitalChart(); }, 50);
   }
   if (name === "Mercati") {
     setTimeout(() => loadSectorRanking(), 300);
     setTimeout(() => loadSectorChart(), 500);
+  }
+  if (name === "Ribilanciamento") {
+    setTimeout(() => {
+      if (Object.keys(manualTargets).length === 0) {
+        const stocks = positions.filter(p => !p.isEtf);
+        stocks.forEach(p => { manualTargets[p.ticker] = parseFloat((100/stocks.length).toFixed(1)); });
+      }
+      renderRebalance();
+    }, 100);
   }
 }
 window.switchTab = switchTab;
@@ -2398,63 +2406,6 @@ async function loadSectorChart() {
 }
 window.loadSectorChart = loadSectorChart;
 
-// ── REBALANCE TARGETS ───────────────────────────────────────────────
-const modalTargetsOverlay = document.getElementById("modalTargetsOverlay");
-document.getElementById("btnOpenTargets").addEventListener("click", () => {
-  renderTargetsForm();
-  modalTargetsOverlay.classList.add("show");
-});
-document.getElementById("btnCancelTargets").addEventListener("click", () => {
-  modalTargetsOverlay.classList.remove("show");
-});
-modalTargetsOverlay.addEventListener("click", (e) => {
-  if (e.target === modalTargetsOverlay) modalTargetsOverlay.classList.remove("show");
-});
-
-function renderTargetsForm() {
-  const wrap = document.getElementById("targetsForm");
-  const tickers = [...new Set(positions.map(p => p.ticker))];
-  const sectors = [...new Set(positions.map(p => p.sector || "Altro"))];
-  const regions = [...new Set(positions.map(p => p.region || "Altro"))];
-
-  let h = "";
-  if (tickers.length) {
-    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Titolo</div><div class="form-grid">`;
-    tickers.forEach(t => {
-      h += `<div class="fg"><label>${t} %</label><input type="number" class="target-input" data-type="ticker" data-key="${t}" value="${targets.ticker[t] ?? ''}" placeholder="--" step="any"></div>`;
-    });
-    h += `</div>`;
-  }
-  if (sectors.length) {
-    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Settore</div><div class="form-grid">`;
-    sectors.forEach(s => {
-      h += `<div class="fg"><label>${s} %</label><input type="number" class="target-input" data-type="sector" data-key="${s}" value="${targets.sector[s] ?? ''}" placeholder="--" step="any"></div>`;
-    });
-    h += `</div>`;
-  }
-  if (regions.length) {
-    h += `<div style="font-size:10px;color:var(--dim);letter-spacing:1px;margin:14px 0 8px;text-transform:uppercase;">Per Area Geografica</div><div class="form-grid">`;
-    regions.forEach(r => {
-      h += `<div class="fg"><label>${r} %</label><input type="number" class="target-input" data-type="region" data-key="${r}" value="${targets.region[r] ?? ''}" placeholder="--" step="any"></div>`;
-    });
-    h += `</div>`;
-  }
-  if (!tickers.length) h = `<p style="font-size:12px;color:var(--dim);">Aggiungi posizioni prima di impostare i target.</p>`;
-
-  wrap.innerHTML = h;
-}
-
-document.getElementById("btnSaveTargets").addEventListener("click", () => {
-  document.querySelectorAll(".target-input").forEach(input => {
-    const type = input.dataset.type, key = input.dataset.key;
-    const val = parseFloat(input.value);
-    if (!isNaN(val)) targets[type][key] = val;
-    else delete targets[type][key];
-  });
-  saveTargets();
-  modalTargetsOverlay.classList.remove("show");
-  renderAll();
-});
 
 // ── BACKUP EXPORT / IMPORT ────────────────────────────────────────────
 document.getElementById("btnBackupExport").addEventListener("click", () => {
@@ -6118,19 +6069,7 @@ function renderEtfPac() {
   wrap.innerHTML = h;
 }
 
-// Call renderRebalance when tab is opened
-const origSwitchTab = window.switchTab;
-window.switchTab = function(name) {
-  origSwitchTab(name);
-  if (name === "Ribilanciamento") {
-    // Initialize manual targets if empty
-    if (Object.keys(manualTargets).length === 0) {
-      const stocks = positions.filter(p => !p.isEtf);
-      stocks.forEach(p => { manualTargets[p.ticker] = parseFloat((100/stocks.length).toFixed(1)); });
-    }
-    renderRebalance();
-  }
-};
+// ── END ───────────────────────────────────────────────────────────────
 
 </script>
 </body>
