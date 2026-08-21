@@ -1255,7 +1255,8 @@ async function loadAllData() {
       fairValueLabel: r.fair_value_label || null,
       analystUpside: r.analyst_upside || null,
       pe: r.pe || null,
-      cashFlowLabel: r.cash_flow_label || null
+      cashFlowLabel: r.cash_flow_label || null,
+      isEtf: r.is_etf || false
     }));
 
     closedLots = closedData.map(r => ({
@@ -1297,7 +1298,8 @@ async function savePositions(pos) {
         fair_value_label: p.fairValueLabel || null,
         analyst_upside: p.analystUpside || null,
         pe: p.pe || null,
-        cash_flow_label: p.cashFlowLabel || null
+        cash_flow_label: p.cashFlowLabel || null,
+        is_etf: p.isEtf || false
       };
       try {
         // Prova PATCH — se non trova righe fa POST
