@@ -1676,8 +1676,7 @@ window.deleteClosedLot = async function(id) {
   renderAll();
 };
 
-
-  const exchange = document.getElementById("fExchange").value;
+function updateTickerSuffix() {
   const currency = document.getElementById("fCurrency");
   const region = document.getElementById("fRegion");
   if (exchange === ".MI" || exchange === ".PA" || exchange === ".DE" || exchange === ".SW") {
