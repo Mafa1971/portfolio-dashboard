@@ -1256,7 +1256,8 @@ async function loadAllData() {
       analystUpside: r.analyst_upside || null,
       pe: r.pe || null,
       cashFlowLabel: r.cash_flow_label || null,
-      isEtf: r.is_etf || false
+      isEtf: r.is_etf || false,
+      pacMonthly: r.pac_monthly || null
     }));
 
     closedLots = closedData.map(r => ({
@@ -1299,7 +1300,8 @@ async function savePositions(pos) {
         analyst_upside: p.analystUpside || null,
         pe: p.pe || null,
         cash_flow_label: p.cashFlowLabel || null,
-        is_etf: p.isEtf || false
+        is_etf: p.isEtf || false,
+        pac_monthly: p.pacMonthly || null
       };
       try {
         // Prova PATCH — se non trova righe fa POST
@@ -5335,6 +5337,11 @@ window.loadPortfolioStats = async function() {
       });
 
       const bestW = simWeights[bestIdx];
+
+      // Save optimal weights for Ribilanciamento tab
+      window._efOptimalWeights = {};
+      simTickers.forEach((t,i) => { window._efOptimalWeights[t] = bestW[i]*100; });
+
       const bestWStr = simTickers.map((t,i)=>
         `<div style="background:var(--panel);border:1px solid #00d4b844;border-radius:6px;padding:6px 10px;display:inline-block;margin:3px;">
           <span style="color:#00d4b8;font-weight:700;font-size:11px;">${t}</span>
@@ -6059,7 +6066,8 @@ function renderEtfPac() {
       <td style="padding:8px;text-align:right;font-weight:700;">${curPct.toFixed(1)}%</td>
       <td style="padding:8px;text-align:right;color:${pl>=0?"#00d4b8":"#ff6b6b"};">${pl>=0?"+":""}${pl.toFixed(1)}%</td>
       <td style="padding:8px;text-align:center;">
-        <input type="number" placeholder="€/mese" id="pac_${p.id}"
+        <input type="number" placeholder="€/mese" value="${p.pacMonthly||''}" id="pac_${p.id}"
+          onchange="savePacMonthly('${p.id}', this.value)"
           style="width:80px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:4px;border-radius:4px;text-align:center;font-size:11px;">
       </td>
       <td style="padding:8px;font-weight:700;color:${signalCol};">${signal}</td>
@@ -6071,6 +6079,15 @@ function renderEtfPac() {
 }
 
 // ── END ───────────────────────────────────────────────────────────────
+
+window.savePacMonthly = async function(id, value) {
+  const p = positions.find(x => x.id === id);
+  if (!p) return;
+  p.pacMonthly = parseFloat(value) || null;
+  try {
+    await sbFetch(`positions?id=eq.${id}&user_id=eq.${currentUser}`, "PATCH", { pac_monthly: p.pacMonthly });
+  } catch(e) { console.error("PAC save error:", e); }
+};
 
 </script>
 </body>
