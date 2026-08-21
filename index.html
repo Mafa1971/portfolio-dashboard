@@ -5252,10 +5252,10 @@ window.loadPortfolioStats = async function() {
           <span style="color:#00d4b8;font-weight:700;font-size:11px;">${t}</span>
           <span style="color:var(--dim);font-size:11px;"> ${(bestW[i]*100).toFixed(1)}%</span>
         </div>`).join("");
-      document.getElementById("efficientFrontierPanel").querySelector("canvas").insertAdjacentHTML("afterend",
-        `<div style="margin-top:12px;padding:12px;background:var(--panel2);border-radius:8px;border:1px solid var(--line);">
-          <div style="font-size:10px;color:#00d4b8;font-weight:700;letter-spacing:1px;margin-bottom:8px;">🏆 PESI OTTIMALI (MAX SHARPE)</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;">${bestWStr}</div>
+      document.getElementById("efficientFrontierPanel").insertAdjacentHTML("afterend",
+        `<div class="panel" style="margin-top:10px;">
+          <div style="font-size:10px;color:#00d4b8;font-weight:700;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;">🏆 Pesi Ottimali (Max Sharpe)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${bestWStr}</div>
          </div>`);
     }
   }
