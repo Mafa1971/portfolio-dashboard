@@ -1659,6 +1659,9 @@ function renderStats() {
       <td style="text-align:right;padding:8px;font-family:'JetBrains Mono',monospace;">${sym}${l.sellPrice?.toFixed(2)}</td>
       <td style="text-align:right;padding:8px;font-family:'JetBrains Mono',monospace;color:${col};font-weight:700;">${pl>=0?'+':''}${sym}${Math.abs(pl).toFixed(0)} (${plPct>=0?'+':''}${plPct?.toFixed(1)}%)</td>
       <td style="text-align:right;padding:8px;font-size:10px;color:var(--dim);">${l.sellDate||''}</td>
+      <td style="padding:8px;text-align:center;">
+        <button onclick="deleteClosedLot('${l.id}')" style="background:none;border:none;color:#7d8aa3;cursor:pointer;font-size:14px;" title="Elimina operazione">✕</button>
+      </td>
     </tr>`;
   });
   h += "</table>";
@@ -1666,7 +1669,14 @@ function renderStats() {
 }
 
 
-function updateTickerSuffix() {
+window.deleteClosedLot = async function(id) {
+  if (!confirm("Eliminare questa operazione chiusa dalle statistiche?")) return;
+  closedLots = closedLots.filter(l => l.id !== id);
+  try { await sbFetch(`closed_lots?id=eq.${id}`, "DELETE"); } catch(e) { console.error(e); }
+  renderAll();
+};
+
+
   const exchange = document.getElementById("fExchange").value;
   const currency = document.getElementById("fCurrency");
   const region = document.getElementById("fRegion");
