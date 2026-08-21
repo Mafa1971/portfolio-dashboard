@@ -5252,8 +5252,12 @@ window.loadPortfolioStats = async function() {
           <span style="color:#00d4b8;font-weight:700;font-size:11px;">${t}</span>
           <span style="color:var(--dim);font-size:11px;"> ${(bestW[i]*100).toFixed(1)}%</span>
         </div>`).join("");
+      // Remove existing weights card if present
+      const existingCard = document.getElementById("szOptimalWeights");
+      if (existingCard) existingCard.remove();
+
       document.getElementById("efficientFrontierPanel").insertAdjacentHTML("afterend",
-        `<div class="panel" style="margin-top:10px;">
+        `<div class="panel" id="szOptimalWeights" style="margin-top:10px;">
           <div style="font-size:10px;color:#00d4b8;font-weight:700;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase;">🏆 Pesi Ottimali (Max Sharpe)</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;">${bestWStr}</div>
          </div>`);
