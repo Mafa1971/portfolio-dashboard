@@ -8,8 +8,12 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const prompt = body.prompt || "";
 
-    // Try models in order of preference
-    const models = ["llama3-70b-8192", "llama3-8b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"];
+    const models = [
+      "llama-3.1-70b-versatile",
+      "llama-3.1-8b-instant", 
+      "llama3-70b-8192",
+      "llama3-8b-8192"
+    ];
     
     let lastError = null;
     for (const model of models) {
@@ -26,10 +30,10 @@ exports.handler = async (event) => {
         })
       });
       const data = await res.json();
-      console.log(`Model ${model} status:`, res.status);
+      console.log(`Model ${model} status:`, res.status, data?.error?.message||"OK");
       if (res.ok) {
         const text = data?.choices?.[0]?.message?.content || "Nessuna risposta.";
-        return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ text, model }) };
+        return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ text }) };
       }
       lastError = data?.error?.message || res.status;
     }
