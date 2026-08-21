@@ -235,6 +235,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <div class="card"><div class="v down" id="kpiMaxDD">--</div><div class="l">Max Drawdown</div></div>
     <div class="card"><div class="v" id="kpiVol">--</div><div class="l">Volatilita' Annua</div></div>
     <div class="card"><div class="v" id="kpiPositions">0</div><div class="l">Posizioni Attive</div></div>
+    <div class="card"><div class="v" id="kpiTotalSL" style="font-size:13px;">--</div><div class="l">Totale Stop Loss</div></div>
   </div>
   <!-- CAPITALE -->
   <div class="panel" style="margin-bottom:20px;">
@@ -321,9 +322,9 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
     <div class="panel-title">ANDAMENTO CAPITALE <span class="sub">aggiornato ad ogni refresh prezzi</span></div>
     <div style="height:220px;"><canvas id="chartCapital"></canvas></div>
   </div>
-  <div class="panel" id="efficientFrontierPanel" style="display:none;overflow:visible;">
+  <div class="panel" id="efficientFrontierPanel" style="display:none;overflow:visible;padding-bottom:20px;">
     <div class="panel-title">FRONTIERA EFFICIENTE <span style="font-size:10px;color:var(--dim);">(Monte Carlo 2000 portafogli)</span></div>
-    <div style="position:relative;height:320px;max-height:320px;">
+    <div style="position:relative;height:320px;">
       <canvas id="efficientFrontierChart"></canvas>
     </div>
   </div>
@@ -466,6 +467,10 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
   <button class="tab-btn" onclick="switchTab('Mercati')" id="tabBtnMercati">
     <span class="tab-icon">🌍</span>
     <span class="tab-label">Mercati</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('Size')" id="tabBtnSize">
+    <span class="tab-icon">⚖️</span>
+    <span class="tab-label">Size</span>
   </button>
 
 </nav>
@@ -1027,6 +1032,7 @@ footer{margin-top:24px;font-size:10px;color:var(--dim2);letter-spacing:1px;text-
 </div><!-- end appContent -->
 
 <script>
+
 
 
 
@@ -2106,7 +2112,7 @@ modalCloseOverlay.addEventListener("click", (e) => {
 
 document.getElementById("btnConfirmClose").addEventListener("click", () => {
   const p = positions.find(x => x.id === closingPositionId);
-  if (!p) return;
+  if (!p) { modalCloseOverlay.classList.remove("show"); return; }
 
   const sellQty = parseFloat(document.getElementById("cQty").value);
   const sellPrice = parseFloat(document.getElementById("cPrice").value);
@@ -2117,7 +2123,10 @@ document.getElementById("btnConfirmClose").addEventListener("click", () => {
     return;
   }
 
-  // Realized P&L con prezzo medio ponderato (buyPrice è già la media)
+  // Disable button to prevent double submit
+  const btn = document.getElementById("btnConfirmClose");
+  btn.disabled = true;
+
   const realizedPL = (sellPrice - p.buyPrice) * sellQty;
   const realizedPLPercent = ((sellPrice - p.buyPrice) / p.buyPrice) * 100;
 
@@ -2130,16 +2139,16 @@ document.getElementById("btnConfirmClose").addEventListener("click", () => {
   });
   saveClosedLots();
 
-  // Riduci o elimina la posizione
   if (sellQty >= p.qty) {
     positions = positions.filter(x => x.id !== p.id);
+    deletePositionFromDB(p.id);
   } else {
-    p.qty = p.qty - sellQty;
-    // buyPrice (media ponderata) resta invariato in chiusura parziale semplice
+    p.qty = parseFloat((p.qty - sellQty).toFixed(6));
   }
   savePositions(positions);
 
   modalCloseOverlay.classList.remove("show");
+  setTimeout(() => { btn.disabled = false; }, 1000);
   renderAll();
 });
 
@@ -2876,6 +2885,20 @@ function renderHero() {
   document.getElementById("kpiMaxDD").textContent = risk.maxDD != null ? risk.maxDD.toFixed(1)+"%" : "--";
   document.getElementById("kpiVol").textContent = risk.vol != null ? risk.vol.toFixed(1)+"%" : "--";
   document.getElementById("kpiPositions").textContent = positions.length;
+
+  // Totale Stop Loss
+  const posWithSL = positions.filter(p => p.stopLoss && p.currentPrice);
+  const totalSLValue = posWithSL.reduce((s, p) => s + p.stopLoss * p.qty, 0);
+  const totalSLLoss = posWithSL.reduce((s, p) => s + (p.stopLoss - (p.currentPrice||p.buyPrice)) * p.qty, 0);
+  const slEl = document.getElementById("kpiTotalSL");
+  if (slEl) {
+    if (posWithSL.length > 0) {
+      slEl.textContent = `€${totalSLValue.toLocaleString("it-IT",{maximumFractionDigits:0})} (${totalSLLoss>=0?"+":""}€${Math.abs(totalSLLoss).toLocaleString("it-IT",{maximumFractionDigits:0})})`;
+      slEl.style.color = totalSLLoss < 0 ? "#ff6b6b" : "#00d4b8";
+    } else {
+      slEl.textContent = "--";
+    }
+  }
 }
 
 // ── RENDER: TABLE ──────────────────────────────────────────────────────
@@ -5238,6 +5261,320 @@ window.loadPortfolioStats = async function() {
   msg.textContent = "";
 };
 
+
+// ── POSITION & RISK MANAGER ───────────────────────────────────────────
+let currentSzStrategy = "custom";
+
+window.setSzStrategy = function(strategy) {
+  currentSzStrategy = strategy;
+  // Update button styles
+  ["equal_size","equal_capital","risk_weighted","aggressive","anti_martingale","custom"].forEach(s => {
+    const btn = document.getElementById("szBtn_"+s);
+    if (btn) btn.className = s === strategy ? "btn primary" : "btn ghost";
+    if (btn) btn.style.fontSize = "11px";
+  });
+
+  const e1 = parseFloat(document.getElementById("szE1").value) || 0;
+  const e2 = parseFloat(document.getElementById("szE2").value) || 0;
+  const e3 = parseFloat(document.getElementById("szE3").value) || 0;
+  const hasE2 = e2 > 0, hasE3 = e3 > 0;
+  const n = (e1>0?1:0) + (hasE2?1:0) + (hasE3?1:0) || 1;
+
+  let p1,p2,p3;
+  switch(strategy) {
+    case "equal_size":
+      p1 = p2 = p3 = Math.round(100/n);
+      break;
+    case "equal_capital":
+      p1 = p2 = p3 = Math.round(100/n);
+      break;
+    case "risk_weighted":
+      // Più peso ai livelli più bassi (più vicini allo stop)
+      if (n===3) { p1=20; p2=33; p3=47; }
+      else if (n===2) { p1=40; p2=60; p3=0; }
+      else { p1=100; p2=0; p3=0; }
+      break;
+    case "aggressive":
+      // Incremento progressivo
+      if (n===3) { p1=15; p2=30; p3=55; }
+      else if (n===2) { p1=35; p2=65; p3=0; }
+      else { p1=100; p2=0; p3=0; }
+      break;
+    case "anti_martingale":
+      // Più peso al primo ingresso (favorevole)
+      if (n===3) { p1=55; p2=30; p3=15; }
+      else if (n===2) { p1=65; p2=35; p3=0; }
+      else { p1=100; p2=0; p3=0; }
+      break;
+    default: return; // custom: non cambia
+  }
+  document.getElementById("szP1").value = p1||"";
+  document.getElementById("szP2").value = hasE2 ? (p2||"") : 0;
+  document.getElementById("szP3").value = hasE3 ? (p3||"") : 0;
+};
+
+window.calcSize = function() {
+  const capital = parseFloat(document.getElementById("szCapital").value) || 0;
+  const maxLoss = parseFloat(document.getElementById("szMaxLoss").value) || 0;
+  const stop = parseFloat(document.getElementById("szStop").value) || 0;
+  const target = parseFloat(document.getElementById("szTarget").value) || 0;
+  const e1 = parseFloat(document.getElementById("szE1").value) || 0;
+  const e2 = parseFloat(document.getElementById("szE2").value) || 0;
+  const e3 = parseFloat(document.getElementById("szE3").value) || 0;
+  const p1 = parseFloat(document.getElementById("szP1").value) || 0;
+  const p2 = parseFloat(document.getElementById("szP2").value) || 0;
+  const p3 = parseFloat(document.getElementById("szP3").value) || 0;
+
+  if (!capital || !stop || !e1) {
+    alert("Inserisci almeno: Capitale, Stop Loss e Entrata 1");
+    return;
+  }
+  if (stop >= e1) { alert("Lo Stop Loss deve essere inferiore al prezzo di Entrata 1"); return; }
+
+  // Calcola allocazioni
+  const totalPct = p1 + (e2?p2:0) + (e3?p3:0);
+  if (totalPct <= 0) { alert("Inserisci le % di allocazione"); return; }
+
+  const cap1 = capital * (p1/totalPct);
+  const cap2 = e2 ? capital * (p2/totalPct) : 0;
+  const cap3 = e3 ? capital * (p3/totalPct) : 0;
+
+  const qty1 = e1 ? Math.floor(cap1 / e1) : 0;
+  const qty2 = e2 ? Math.floor(cap2 / e2) : 0;
+  const qty3 = e3 ? Math.floor(cap3 / e3) : 0;
+
+  const totalQty = qty1 + qty2 + qty3;
+  const totalInvested = qty1*e1 + qty2*e2 + qty3*e3;
+  const avgPrice = totalQty > 0 ? totalInvested / totalQty : 0;
+  const lossAtStop = totalQty > 0 ? (avgPrice - stop) * totalQty : 0;
+  const riskPct = capital > 0 ? (lossAtStop / capital) * 100 : 0;
+
+  // R:R ratio
+  const rr = (target > 0 && lossAtStop > 0) ? ((target - avgPrice) * totalQty / lossAtStop).toFixed(2) : null;
+  const profitAtTarget = target > 0 ? (target - avgPrice) * totalQty : null;
+
+  // Breakeven
+  const breakeven = avgPrice;
+  // Recovery price: quanto deve salire per recuperare la perdita massima
+  const recoveryPrice = totalQty > 0 ? avgPrice + (maxLoss / totalQty) : 0;
+
+  // ── RENDER TABLE ──────────────────────────────────────────────────
+  const entries = [{e:e1,qty:qty1,cap:cap1,pct:p1,col:"#00d4b8"},{e:e2,qty:qty2,cap:cap2,pct:p2,col:"#ffd23f"},{e:e3,qty:qty3,cap:cap3,pct:p3,col:"#ff6b6b"}].filter(x=>x.e>0);
+
+  let tableH = `<tr style="border-bottom:1px solid var(--line);">
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:left;">ENTRATA</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">PREZZO</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">% ALLOC.</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">CAPITALE</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">AZIONI</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">DISTANZA STOP</th>
+    <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">PERDITA STOP</th>
+  </tr>`;
+
+  entries.forEach((x,i) => {
+    const distStop = ((x.e - stop)/x.e*100).toFixed(1);
+    const lossEntry = (x.e - stop) * x.qty;
+    tableH += `<tr style="border-top:1px solid #1a2030;">
+      <td style="padding:8px;font-weight:700;color:${x.col};">Entrata ${i+1}</td>
+      <td style="padding:8px;text-align:right;">€${x.e.toFixed(2)}</td>
+      <td style="padding:8px;text-align:right;">${x.pct.toFixed(0)}%</td>
+      <td style="padding:8px;text-align:right;">€${x.cap.toFixed(0)}</td>
+      <td style="padding:8px;text-align:right;font-weight:700;">${x.qty}</td>
+      <td style="padding:8px;text-align:right;color:#ff9f1c;">${distStop}%</td>
+      <td style="padding:8px;text-align:right;color:#ff6b6b;">-€${lossEntry.toFixed(0)}</td>
+    </tr>`;
+  });
+
+  // Totale
+  tableH += `<tr style="border-top:2px solid var(--line);background:var(--panel2);">
+    <td style="padding:8px;font-weight:700;color:var(--gold);">TOTALE</td>
+    <td style="padding:8px;text-align:right;color:var(--gold);">Media: €${avgPrice.toFixed(2)}</td>
+    <td style="padding:8px;text-align:right;">100%</td>
+    <td style="padding:8px;text-align:right;font-weight:700;">€${totalInvested.toFixed(0)}</td>
+    <td style="padding:8px;text-align:right;font-weight:700;color:var(--gold);">${totalQty}</td>
+    <td style="padding:8px;text-align:right;">SL: €${stop.toFixed(2)}</td>
+    <td style="padding:8px;text-align:right;color:${lossAtStop>maxLoss?"#ff4444":"#ff6b6b"};font-weight:700;">-€${lossAtStop.toFixed(0)}</td>
+  </tr>`;
+
+  document.getElementById("szTable").innerHTML = tableH;
+
+  // ── KPI CARDS ─────────────────────────────────────────────────────
+  const warn = lossAtStop > maxLoss;
+  const cards = [
+    {l:"Prezzo Medio Carico", v:`€${avgPrice.toFixed(3)}`, col:"var(--gold)"},
+    {l:"Capitale Investito", v:`€${totalInvested.toFixed(0)}`, sub:`${(totalInvested/capital*100).toFixed(0)}% del capitale`, col:"var(--txt)"},
+    {l:"Perdita allo Stop", v:`-€${lossAtStop.toFixed(0)}`, sub:`${riskPct.toFixed(1)}% del capitale`, col:warn?"#ff4444":"#ff6b6b"},
+    {l:"Perdita Max Impostata", v:`€${maxLoss.toFixed(0)}`, col:warn?"#ff4444":"#00d4b8"},
+    {l:"Totale Azioni", v:totalQty, col:"var(--txt)"},
+    {l:"Break-Even", v:`€${breakeven.toFixed(2)}`, col:"#ffd23f"},
+    {l:"Prezzo Recupero Perdita", v:`€${recoveryPrice.toFixed(2)}`, sub:`+${((recoveryPrice-avgPrice)/avgPrice*100).toFixed(1)}% dalla media`, col:"#80ed99"},
+    ...(rr ? [{l:"R:R Ratio", v:`1 : ${rr}`, sub:`Profitto target: €${profitAtTarget.toFixed(0)}`, col:parseFloat(rr)>=2?"#00d4b8":parseFloat(rr)>=1?"#ffd23f":"#ff6b6b"}] : []),
+  ];
+
+  if (warn) {
+    document.getElementById("szCards").innerHTML = `<div style="grid-column:1/-1;background:#ff444422;border:1px solid #ff4444;border-radius:8px;padding:12px;font-size:12px;color:#ff4444;font-weight:700;">
+      ⚠️ ATTENZIONE: La perdita allo stop (€${lossAtStop.toFixed(0)}) supera la perdita massima impostata (€${maxLoss.toFixed(0)}).
+      Riduci le quantità o abbassa le allocazioni.
+    </div>` + cards.map(c=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;">
+      <div style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${c.l}</div>
+      <div style="font-size:18px;font-weight:800;color:${c.col};">${c.v}</div>
+      ${c.sub?`<div style="font-size:10px;color:var(--dim);margin-top:3px;">${c.sub}</div>`:""}
+    </div>`).join("");
+  } else {
+    document.getElementById("szCards").innerHTML = cards.map(c=>`<div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;">
+      <div style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">${c.l}</div>
+      <div style="font-size:18px;font-weight:800;color:${c.col};">${c.v}</div>
+      ${c.sub?`<div style="font-size:10px;color:var(--dim);margin-top:3px;">${c.sub}</div>`:""}
+    </div>`).join("");
+  }
+
+  // ── SCENARI ───────────────────────────────────────────────────────
+  const scenarios = [
+    {label:"🛑 Stop Loss", price:stop},
+    {label:"⚖️ Break-Even", price:avgPrice},
+    {label:"📈 +5%", price:avgPrice*1.05},
+    {label:"📈 +10%", price:avgPrice*1.10},
+    {label:"📈 +15%", price:avgPrice*1.15},
+    {label:"📈 +20%", price:avgPrice*1.20},
+    {label:"📈 +30%", price:avgPrice*1.30},
+    ...(target>0 ? [{label:"🎯 Target", price:target}] : []),
+  ].sort((a,b)=>a.price-b.price);
+
+  let scenH = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+    <tr style="border-bottom:1px solid var(--line);">
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:left;">SCENARIO</th>
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">PREZZO</th>
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">VAR% DA MEDIA</th>
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">P&L €</th>
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">P&L % CAPITALE</th>
+      <th style="padding:8px;font-size:9px;color:var(--dim);text-align:right;">R:R</th>
+    </tr>`;
+
+  scenarios.forEach(s => {
+    const pl = (s.price - avgPrice) * totalQty;
+    const plPct = (pl / capital) * 100;
+    const varPct = ((s.price - avgPrice) / avgPrice * 100);
+    const rrS = lossAtStop > 0 && pl > 0 ? (pl/lossAtStop).toFixed(2) : "--";
+    const col = pl > 0 ? "#00d4b8" : pl < 0 ? "#ff6b6b" : "#ffd23f";
+    scenH += `<tr style="border-top:1px solid #1a2030;${s.label.includes("Target")?"background:#00d4b808;":""}${s.label.includes("Stop")?"background:#ff6b6b08;":""}">
+      <td style="padding:8px;font-weight:700;">${s.label}</td>
+      <td style="padding:8px;text-align:right;">€${s.price.toFixed(2)}</td>
+      <td style="padding:8px;text-align:right;color:${col};">${varPct>=0?"+":""}${varPct.toFixed(2)}%</td>
+      <td style="padding:8px;text-align:right;color:${col};font-weight:700;">${pl>=0?"+":""}€${pl.toFixed(0)}</td>
+      <td style="padding:8px;text-align:right;color:${col};">${plPct>=0?"+":""}${plPct.toFixed(1)}%</td>
+      <td style="padding:8px;text-align:right;color:#00d4b8;">${pl>0?"1:"+rrS:"--"}</td>
+    </tr>`;
+  });
+  scenH += "</table>";
+  document.getElementById("szScenarios").innerHTML = scenH;
+  document.getElementById("szResults").style.display = "block";
+};
+
 </script>
 </body>
 </html>
+
+<!-- TAB CALCOLO SIZE -->
+<div id="tabSize" class="tab-content">
+  <div class="panel">
+    <div class="panel-title">⚖️ POSITION & RISK MANAGER</div>
+
+    <!-- INPUT -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;">
+      <div>
+        <label style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">💰 Capitale Disponibile (€)</label>
+        <input type="number" id="szCapital" value="1000" step="100"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">🛑 Perdita Massima (€)</label>
+        <input type="number" id="szMaxLoss" value="200" step="10"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">🎯 Prezzo Target (€)</label>
+        <input type="number" id="szTarget" step="0.01" placeholder="es. 110"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">🔴 Stop Loss (€)</label>
+        <input type="number" id="szStop" step="0.01" placeholder="es. 70"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <!-- STRATEGIE -->
+    <div style="margin-bottom:16px;">
+      <label style="font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;">📐 Strategia di Dimensionamento</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <button onclick="setSzStrategy('equal_size')" id="szBtn_equal_size" class="btn ghost" style="font-size:11px;">Equal Size</button>
+        <button onclick="setSzStrategy('equal_capital')" id="szBtn_equal_capital" class="btn ghost" style="font-size:11px;">Equal Capital</button>
+        <button onclick="setSzStrategy('risk_weighted')" id="szBtn_risk_weighted" class="btn ghost" style="font-size:11px;">Risk Weighted</button>
+        <button onclick="setSzStrategy('aggressive')" id="szBtn_aggressive" class="btn ghost" style="font-size:11px;">Aggressive Avg</button>
+        <button onclick="setSzStrategy('anti_martingale')" id="szBtn_anti_martingale" class="btn ghost" style="font-size:11px;">Anti-Martingale</button>
+        <button onclick="setSzStrategy('custom')" id="szBtn_custom" class="btn primary" style="font-size:11px;">Custom %</button>
+      </div>
+    </div>
+
+    <!-- 3 LIVELLI ENTRATA -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
+      <div style="background:var(--panel2);border:1px solid #00d4b844;border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:#00d4b8;font-weight:700;margin-bottom:8px;">📍 ENTRATA 1</div>
+        <input type="number" id="szE1" step="0.01" placeholder="Prezzo (es. 100)"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;margin-bottom:6px;box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" id="szP1" step="1" min="1" max="100" value="33"
+            style="width:70px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;">
+          <span style="font-size:12px;color:var(--dim);">% del capitale</span>
+        </div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid #ffd23f44;border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:#ffd23f;font-weight:700;margin-bottom:8px;">📍 ENTRATA 2</div>
+        <input type="number" id="szE2" step="0.01" placeholder="Prezzo (es. 90)"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;margin-bottom:6px;box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" id="szP2" step="1" min="0" max="100" value="33"
+            style="width:70px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;">
+          <span style="font-size:12px;color:var(--dim);">% del capitale</span>
+        </div>
+      </div>
+      <div style="background:var(--panel2);border:1px solid #ff6b6b44;border-radius:10px;padding:12px;">
+        <div style="font-size:10px;color:#ff6b6b;font-weight:700;margin-bottom:8px;">📍 ENTRATA 3</div>
+        <input type="number" id="szE3" step="0.01" placeholder="Prezzo (es. 80)"
+          style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;margin-bottom:6px;box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="number" id="szP3" step="1" min="0" max="100" value="34"
+            style="width:70px;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:6px;font-size:13px;">
+          <span style="font-size:12px;color:var(--dim);">% del capitale</span>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="calcSize()" class="btn primary" style="width:100%;padding:12px;font-size:14px;font-weight:700;">⚡ CALCOLA POSITION SIZE</button>
+  </div>
+
+  <!-- RISULTATI -->
+  <div id="szResults" style="display:none;">
+
+    <!-- RIEPILOGO ENTRATE -->
+    <div class="panel">
+      <div class="panel-title">📊 RIEPILOGO ENTRATE</div>
+      <div style="overflow-x:auto;">
+        <table id="szTable" style="width:100%;border-collapse:collapse;font-size:12px;"></table>
+      </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="panel">
+      <div class="panel-title">🎯 ANALISI RISCHIO/RENDIMENTO</div>
+      <div id="szCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
+    </div>
+
+    <!-- SCENARI -->
+    <div class="panel">
+      <div class="panel-title">📈 SCENARI DI PREZZO</div>
+      <div id="szScenarios" style="overflow-x:auto;"></div>
+    </div>
+
+  </div>
+</div>
